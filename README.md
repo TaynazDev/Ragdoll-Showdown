@@ -1,8 +1,8 @@
 # Ragdoll Showdown
 
-A chaotic first-person physics brawler in a single HTML file. You and a blocky NPC knock each other around with a blaster, flying potted plants and your bare hands. Anyone who takes a hit goes full ragdoll, and the loser might end up in the bin.
+A chaotic first-person physics brawler in a single HTML file. You and a blocky NPC knock each other around with a blaster, flying potted plants and your bare hands. Anyone who takes a hit goes full ragdoll, and the loser might end up in the bin, the fridge, the wardrobe or the chest freezer.
 
-Play solo against the NPC, or invite a friend on another computer for a three-way free-for-all.
+Play solo against the NPC, or invite up to three friends for a five-way free-for-all (4 players + the NPC).
 
 ---
 
@@ -29,8 +29,10 @@ Play solo against the NPC, or invite a friend on another computer for a three-wa
 | Grab | **3** |
 | Use tool | **Left-click** (hold for auto-fire with the blaster) |
 | Charge a throw (while grabbing) | Hold **right-click**, release to throw |
-| Open / close the bin | **E** (when standing next to it) |
-| Escape a closed bin | Mash **E** |
+| Open / close a container | **E** (when standing next to it) |
+| Hide inside an open container | **F** (press **E** or **F** again to come out) |
+| NPC on / ragdoll dummy | **N** (or the 🤖 NPC button) |
+| Escape when shut inside | Mash **E** |
 | Reset the match | **R** |
 
 ---
@@ -72,41 +74,52 @@ The NPC wanders the arena and attacks every few seconds. A red banner warns the 
 | *Incoming plant!* | He winds up and lobs a plant at where you're heading. |
 | *He's coming to grab you!* | He sprints over, grabs you, drags your ragdoll away and flings you. |
 | *He's coming to grab you while you're down!* | Knocked over? He'll often come and pick you up. |
-| *He's taking you to the bin!* | He carries you to the bin, hoists you overhead, lobs you in and slams the lid. |
+| *He's taking you to the bin! / fridge / wardrobe / freezer* | He carries you to a free container, shoves you inside and shuts it. |
+| *He saw you hide!* | He spotted you climbing in. He runs over, yanks it open, drags you out and might stuff you in a different container. |
+| *BOO! He was hiding in there!* | Sometimes he hides in a container himself, then jumps out on whoever comes close (or opens it) and chases them. |
 
-He shouts when he gets hit, panics and runs off after getting back up, and jumps out of the bin when he lands in it.
+He shouts when he gets hit, panics and runs off after getting back up, and jumps out of any container he lands in.
+
+Press **N** (or the **🤖 NPC** button) to switch him to a **ragdoll dummy**: he goes limp, stops attacking and stays a ragdoll for you to shoot, grab and throw around. Press it again to wake him up.
 
 ---
 
-## The bin 🗑️
+## Containers 🗑️ 🧊 🚪
 
-A green wheelie bin with a hinged lid sits in the arena.
+Four containers sit around the arena, and they all work the same way:
 
-- Throw or drop people in, then press **E** next to it to close the lid.
-- Anyone inside a closed bin is **stuck**: they can't get up, and shots and grabs can't reach them through the walls.
+- 🗑️ **Bin**: green wheelie bin with a lid
+- 🧊 **Fridge**: tall, with a front door
+- 🚪 **Wardrobe**: tall, with double doors that swing apart
+- ❄️ **Chest freezer**: long and low, with a lid
+
+- They all start **closed**. Press **E** next to one to open it.
+- Throw or drop people in, then press **E** next to it to close it.
+- Anyone shut inside is **stuck**: they can't get up, and shots and grabs can't reach them through the walls.
 - Escaping depends on who's inside:
-  - **Players** mash **E** to push the lid open (6 presses), or burst out on their own after 15 seconds.
-  - **The NPC** bangs on the lid and bursts out after about 5 seconds.
-- Once the lid is open, whoever's inside stands up and **jumps out** over the front wall.
+  - **Players** mash **E** to push it open (6 presses), or burst out on their own after 15 seconds.
+  - **The NPC** bangs on it and bursts out after about 5 seconds.
+- Once it's open, whoever's inside stands up and **jumps out** the front.
+- **Hiding:** stand next to an open, empty container and press **F** to climb in and shut it behind you. If the NPC **sees you climb in** (you're close enough, in front of him and not behind another container), he comes to drag you back out. If he didn't see, he won't come after you, and you can stay as long as you like. Press **E** or **F** to come out. If someone opens it, you've been found!
 
 ---
 
-## Playing with a friend
+## Playing with friends (up to 4 players)
 
-1. Copy `ragdoll.html` to both computers and open it in Chrome or Edge.
-2. On one computer, click **👥 Play with a friend → Host a game** to get a **4-letter room code**.
-3. On the other, click **👥 Play with a friend**, enter the code and press **Join**.
+1. Open the game on every device in Chrome or Edge.
+2. On one computer, click **👥 Play with friends → Host a game** to get a **4-letter room code**.
+3. On up to three other devices, click **👥 Play with friends**, enter the code and press **Join**. Each friend takes the next free slot (P2–P4) with their own outfit.
 
 **How it works:**
 - **Mode:** free-for-all, so everyone can shoot, plant and grab everyone, including the NPC.
 - **The NPC:** picks a random player to attack.
-- **Scoreboard:** shows hits for **You · Friend · NPC**.
-- **Reset:** pressing **R** on either computer resets the match.
-- **Leaving:** **Leave game** drops back to solo. The host's room stays open so the friend can rejoin.
+- **Scoreboard:** shows hits for **you, every other player and the NPC**.
+- **Reset:** pressing **R** on any device resets the match.
+- **Leaving:** **Leave game** drops back to solo. The host's room stays open so friends can rejoin. A full room turns away a fifth player.
 
 **Under the hood:**
 - The **host runs all the physics**, so use the faster computer to host.
-- The guest sends its movement and actions to the host and receives the game state about 30 times a second.
+- Each guest sends its movement and actions to the host and receives the game state about 30 times a second.
 - Players find each other through PeerJS's free public signalling server. After that, the game connects directly device-to-device, which works best on the **same Wi-Fi**.
 - If PeerJS's server is unreachable, joining fails, but solo play still works.
 
@@ -116,7 +129,7 @@ A green wheelie bin with a hinged lid sits in the arena.
 
 ## Tweaking
 
-These constants near the top of the `<script>` in `ragdoll.html` are easy to change:
+These constants near the top of the `<script>` in `index.html` are easy to change:
 
 | Constant | Default | What it does |
 |---|---|---|
@@ -124,8 +137,8 @@ These constants near the top of the `<script>` in `ragdoll.html` are easy to cha
 | `HOLD_MAX` | `4.5` | How far in front of you a grabbed person is held |
 | `CHARGE_TIME` | `1.5` | Seconds of right-click needed for a full-power throw |
 | `GRAVITY` | `30` | World gravity |
-| `ARENA` | `22` | Half-width of the arena |
-| `BIN` | `{ x: -13, z: 6, … }` | Bin position and size |
+| `ARENA` | `32` | Half-width of the arena |
+| `CONTAINERS` | bin, fridge, wardrobe, freezer | Position, size, rotation and look of each container |
 
 ---
 
