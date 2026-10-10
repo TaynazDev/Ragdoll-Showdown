@@ -27,6 +27,7 @@ Play solo against the NPC, or invite up to three friends for a five-way free-for
 | Blaster | **1** |
 | Plant | **2** |
 | Grab | **3** |
+| Sniper | **4** (hold **right-click** to use the scope) |
 | Use tool | **Left-click** (hold for auto-fire with the blaster) |
 | Charge a throw (while grabbing) | Hold **right-click**, release to throw |
 | Open / close a container | **E** (when standing next to it) |
@@ -48,6 +49,7 @@ On a phone or tablet, the touch controls appear as soon as you touch the screen:
 | **Big button** (🔫 / 🪴 / ✋) | Use your current tool (hold for auto-fire or to keep holding someone) |
 | **⤒** | Jump |
 | **E** / **F** | Open or close containers / hide |
+| **🔭** | Appears with the sniper: tap to look down the scope, tap again to stop |
 | **💪** | Appears while you're holding someone: hold it to charge a throw, let go to throw |
 
 Pick tools with the buttons along the top. You aim with the crosshair in the middle of the screen.
@@ -61,6 +63,10 @@ A hitscan blaster that fires on a **2-second cooldown**. The first shot on someo
 
 ### 🪴 Plant
 Throws a potted plant in an arc that lands where you aim, on a **4-second cooldown**. If you aim at someone running, it leads the throw for you. Plants stay in the arena (up to 24) and can be pushed, shot and re-hit.
+
+### 🎯 Sniper
+A long-range rifle with a **3-second cooldown**. Each shot hits about twice as hard as the blaster and sends people flying.
+- **Hold right-click** to look down the scope. The view zooms right in, the scope's crosshairs appear and aiming slows down so you can line up long shots. Let go to stop. (On touch, tap **🔭** to scope in and out.)
 
 ### ✋ Grab
 A first-person arm picks people up. You can grab from up to 14 units away, but they're pulled in and held at most 4.5 units in front of you.
@@ -125,6 +131,22 @@ Every piece of furniture is a physics object:
 
 ---
 
+## The towers 🗼 🏙️
+
+Two really tall buildings both have a spiral staircase round an open shaft:
+
+- **The stone tower** (60 units tall) stands in the far right-hand corner, with a battlemented lookout and a flag on top.
+- **The skyscraper** (120 units tall) stands in the near left-hand corner. It is modern, with a blue glass curtain wall, steel mullions, floor bands, an entrance canopy and an antenna with a blinking red light on the roof. Inside, a concrete ramp spirals twelve times up to the roof.
+
+- Walk in through the doorway and climb the **spiral staircase**. Over the last half-turn the top is open, so you come out onto the lookout or the roof.
+- The middle is an **open shaft**. Step off the inner edge of the stairs, or jump from the top, and you **ragdoll all the way down**.
+- The stone tower has windows up the sides that let you (or anyone you throw) fly out.
+- The NPC can follow you up the stairs.
+
+**Falling in general:** any big fall turns you into a ragdoll, so going down the tower shaft or off the edge of the house's stairwell sends you tumbling.
+
+---
+
 ## Containers 🗑️ 🧊 🚪
 
 Six containers (the bin outside, the barbecue in the garden, the fridge and freezer downstairs, and two wardrobes upstairs) all work the same way:
@@ -148,9 +170,11 @@ Six containers (the bin outside, the barbecue in the garden, the fridge and free
 
 ## Playing with friends (up to 4 players)
 
-1. Open the game on every device in Chrome or Edge.
-2. On one computer, click **👥 Play with friends → Host a game** to get a **4-letter room code**.
-3. On up to three other devices, click **👥 Play with friends**, enter the code and press **Join**. Each friend takes the next free slot (P2–P4) with their own outfit.
+You can play on the same Wi-Fi **or across the internet** with friends on different networks.
+
+1. Open the game in Chrome or Edge.
+2. Click **👥 Play with friends → Host a game**. You get a **4-letter room code** and an **invite link**. Press **Copy link**.
+3. Send the link to up to three friends. Opening it starts the game and joins your room automatically. (They can also open the game, click **👥 Play with friends**, enter the code and press **Join**.) Each friend takes the next free slot (P2–P4) with their own outfit.
 
 **How it works:**
 - **Mode:** free-for-all, so everyone can shoot, plant and grab everyone, including the NPC.
@@ -160,10 +184,13 @@ Six containers (the bin outside, the barbecue in the garden, the fridge and free
 - **Leaving:** **Leave game** drops back to solo. The host's room stays open so friends can rejoin. A full room turns away a fifth player.
 
 **Under the hood:**
-- The **host runs all the physics**, so use the faster computer to host.
-- Each guest sends its movement and actions to the host and receives the game state about 30 times a second.
-- Players find each other through PeerJS's free public signalling server. After that, the game connects directly device-to-device, which works best on the **same Wi-Fi**.
-- If PeerJS's server is unreachable, joining fails, but solo play still works.
+- The **host runs all the physics**, so use the faster computer and the better connection to host. Keep the host's game tab in front: browsers pause background tabs, which freezes the game for everyone.
+- Each guest sends its movement and actions to the host and receives the game state about 30 times a second. Only furniture that moved is sent.
+- Players find each other through PeerJS's free public matchmaking server. The game then connects device-to-device, using STUN servers to find a way through each home router.
+- When a direct connection isn't possible (some strict routers, office or school networks and mobile data), it falls back to PeerJS's free **TURN relay**, which passes the traffic along.
+- **Still can't connect?** In the dialog, open **Can't connect? Use your own relay server** and enter a TURN server you have access to (address, username and password). Everyone in the game should add the same one. It's saved in that browser only.
+- **Invite links** point at the public copy of the game (https://taynazdev.github.io/Ragdoll-Showdown/) when you host from a local file or a local dev server, so they work for friends elsewhere. That public copy needs this version of the game, so push it to GitHub Pages first.
+- If PeerJS's server is unreachable, online play fails, but solo play still works.
 
 > On phones and tablets, touch controls appear as soon as you touch the screen (see **Touch controls** above).
 
@@ -175,13 +202,14 @@ These constants near the top of the `<script>` in `index.html` are easy to chang
 
 | Constant | Default | What it does |
 |---|---|---|
-| `COOLDOWN` | `{ blaster: 2.0, plant: 4.0 }` | Seconds between shots and plant throws |
+| `COOLDOWN` | `{ blaster: 2.0, plant: 4.0, sniper: 3.0 }` | Seconds between shots and plant throws |
 | `HOLD_MAX` | `4.5` | How far in front of you a grabbed person is held |
 | `CHARGE_TIME` | `1.5` | Seconds of right-click needed for a full-power throw |
 | `GRAVITY` | `30` | World gravity |
 | `ARENA` | `44` | Half-width of the arena |
 | `CONTAINERS` | bin, fridge, 2 wardrobes, freezer, barbecue | Position, size, rotation, floor and look of each container |
 | `HOUSE` / `STAIRS` | corner house, 9-unit floors | House size and where the stairs run |
+| `TOWERS` | stone tower (60 tall), skyscraper (120 tall) | Position, size, height and how steep each spiral is |
 
 ---
 

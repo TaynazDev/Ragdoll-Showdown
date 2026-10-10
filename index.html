@@ -60,6 +60,15 @@
   #tE { right: 24px; bottom: 132px; }
   #tF { right: 98px; bottom: 112px; }
   #tThrow { right: 172px; bottom: 96px; }
+  #tScope { right: 172px; bottom: 30px; }
+  /* sniper scope: a clear circle with crosshairs, black all round */
+  #scope { position: fixed; inset: 0; pointer-events: none; display: none;
+           background: radial-gradient(circle at center, transparent 0, transparent 38vmin, rgba(0,0,0,.94) 38.4vmin); }
+  #scope::before, #scope::after { content: ""; position: absolute; left: 50%; top: 50%; background: rgba(0,0,0,.85); }
+  #scope::before { width: 76vmin; height: 2px; transform: translate(-50%, -50%); }
+  #scope::after { width: 2px; height: 76vmin; transform: translate(-50%, -50%); }
+  body.scoped #scope { display: block; }
+  body.scoped #crosshair { display: none !important; }
   #mp { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
   #mp.open { display: flex; }
   #mp .card { background: #fff; color: #111827; border-radius: 16px; padding: 20px; width: min(420px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.3); }
@@ -74,6 +83,12 @@
   #mp .foot { display: flex; justify-content: space-between; gap: 8px; }
   #mp .ghost { background: #e5e7eb; color: #111827; box-shadow: none; }
   #mp .ghost:hover { background: #d1d5db; }
+  #mp #inviteIn, #mp details input { font: 13px ui-monospace, monospace; letter-spacing: 0; text-transform: none; padding: 8px 10px; }
+  #mp details { margin: 0 0 12px; font-size: 13px; color: #374151; }
+  #mp details summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
+  #mp details p { font-size: 13px; margin: 0 0 8px; }
+  #mp details > input { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+  #mp .card { max-height: calc(100vh - 32px); overflow-y: auto; }
   .bubble { position: fixed; transform: translate(-50%, -100%); background: #fff; color: #111827; font-weight: 900;
             font-size: 18px; padding: 4px 12px; border-radius: 12px; pointer-events: none; white-space: nowrap;
             box-shadow: 0 3px 10px rgba(0,0,0,.2); animation: pop .9s ease-out forwards; }
@@ -103,6 +118,7 @@
   <button data-tool="blaster" class="active">🔫 Blaster<kbd>1</kbd><span class="cd"></span></button>
   <button data-tool="plant">🪴 Plant<kbd>2</kbd><span class="cd"></span></button>
   <button data-tool="grab">✋ Grab<kbd>3</kbd></button>
+  <button data-tool="sniper">🎯 Sniper<kbd>4</kbd><span class="cd"></span></button>
   <button id="reset">Reset<kbd>R</kbd></button>
   <button id="npcBtn">🤖 NPC: On<kbd>N</kbd></button>
   <button id="mpBtn" class="mp">👥 Play with friends</button>
@@ -112,6 +128,7 @@
 <div id="hint"></div>
 <div id="prompt"></div>
 <div id="crosshair"></div>
+<div id="scope"></div>
 <div id="cdbar"><i></i></div>
 <div id="touch">
   <div id="stick"><div id="knob"></div></div>
@@ -120,15 +137,24 @@
   <button id="tE" class="tb">E</button>
   <button id="tF" class="tb">F</button>
   <button id="tThrow" class="tb" hidden>💪</button>
+  <button id="tScope" class="tb" hidden>🔭</button>
 </div>
 <div id="charge"><span>THROW POWER</span><div><i></i></div></div>
 <div id="mp">
   <div class="card">
     <h2>Play with friends</h2>
-    <p>One device hosts and gets a room code. Up to 3 friends open this same file on their devices and join with that code (4 players max). Best on the same Wi-Fi.</p>
+    <p>One device hosts and gets a room code and an invite link. Up to 3 friends join from anywhere, on the same Wi-Fi or across the internet (4 players max). Send them the link, or have them open the game and enter the code.</p>
     <div class="row"><button id="hostBtn" class="mp" style="flex:1">Host a game</button></div>
     <div class="row"><input id="codeIn" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false"><button id="joinBtn" class="mp">Join</button></div>
     <div id="mpStatus">Not connected. You're playing solo.</div>
+    <div class="row" id="inviteRow" hidden><input id="inviteIn" readonly aria-label="Invite link"><button id="copyBtn" class="mp">Copy link</button></div>
+    <details id="turnBox">
+      <summary>Can't connect? Use your own relay server</summary>
+      <p>The game tries a direct connection first, then PeerJS's free relay. If that's busy, add a TURN server you have access to (from a TURN provider, or one you run yourself). Everyone in the game should add the same one. It's saved in this browser only.</p>
+      <input id="turnUrl" placeholder="turn:example.com:3478" autocomplete="off" spellcheck="false">
+      <div class="row"><input id="turnUser" placeholder="username" autocomplete="off" spellcheck="false"><input id="turnPass" placeholder="password" type="password" autocomplete="off"></div>
+      <div class="row"><button id="turnSave" class="mp" style="flex:1">Save relay</button><button id="turnClear" class="ghost">Clear</button></div>
+    </details>
     <div class="foot"><button id="leaveBtn" class="ghost">Leave game</button><button id="closeBtn" class="ghost">Close</button></div>
   </div>
 </div>
@@ -152,9 +178,25 @@ const PARTS = {
   legL:  { size: [1, 2, 1], rest: [0.5, 1, 0],   mass: 1.6, mat: 'legs', pivot: [0.5, 2, 0] },
   legR:  { size: [1, 2, 1], rest: [-0.5, 1, 0],  mass: 1.6, mat: 'legs', pivot: [-0.5, 2, 0] },
 };
-const COOLDOWN = { blaster: 2.0, plant: 4.0 };   // seconds between shots / throws
+const COOLDOWN = { blaster: 2.0, plant: 4.0, sniper: 3.0 };   // seconds between shots / throws
 const HOLD_MAX = 4.5;                            // how far in front of you a grabbed person can be held
-const PEER_OPTS = {};                 // PeerJS's free public signalling server is used by default
+// Online play: PeerJS's free public server introduces the devices, then they talk directly (WebRTC).
+// STUN servers help each device find its public address so this works across different networks; when a direct
+// line is impossible (strict routers, some mobile networks) a TURN relay passes the traffic along instead.
+// PeerJS runs a free relay; you can add your own in the "Play with friends" dialog (saved in this browser).
+const ICE_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+];
+const TURN_KEY = 'ragdoll-showdown-turn';
+function loadTurn() { try { return JSON.parse(localStorage.getItem(TURN_KEY)) || {}; } catch (_) { return {}; } }
+function saveTurn(t) { try { localStorage.setItem(TURN_KEY, JSON.stringify(t)); } catch (_) {} }
+function peerOptions() {
+  const ice = [...ICE_SERVERS], t = loadTurn();
+  if (t.url) ice.unshift({ urls: t.url.split(',').map((s) => s.trim()).filter(Boolean), username: t.user || undefined, credential: t.pass || undefined });
+  return { config: { iceServers: ice } };
+}
 const ROOM_PREFIX = 'ragdoll-showdown-v1-';
 let tool = 'blaster';
 let firing = false, nextFire = 0, looking = null, lockFailed = false, tpDist = 11;
@@ -186,10 +228,10 @@ scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f70, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 1.7);
-sun.position.set(18, 44, 22);
+sun.position.set(36, 88, 44);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 140 });
+Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 230 });
 scene.add(sun);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0xe9eef2, roughness: 1 }));
@@ -579,6 +621,7 @@ function surfacesAt(x, z) {
   const s = [0];
   if (upstairsAt(x, z)) s.push(HOUSE.up);
   if (onStairs(x, z)) s.push(stairHeight(z));
+  towerSurfaces(x, z, s);
   return s;
 }
 function groundAt(x, z, y) {
@@ -590,6 +633,7 @@ function groundAt(x, z, y) {
 const tooHigh = (x, z, y) => surfacesAt(x, z).some((s) => s > y + STEP && s < y + HEAD);
 // keep standing characters out of walls and containers
 function pushOutOfObstacles(r) {
+  pushOutOfTower(r);
   pushOutOfContainers(r);
   // a door that isn't open far enough yet stops you, so you have to push it open
   for (const l of doorLeaves) {
@@ -623,6 +667,8 @@ function segHitsHouse(a, b, m) {   // does the segment a→b cross the house rec
 }
 // outside, head for whichever corner of the house gets you round it (one corner at a time)
 function outsideTo(pos, target) {
+  const t = aroundTower(pos, target);
+  if (t) return t;
   if (!segHitsHouse(pos, target, 1)) return target;
   let best = target, bestD = Infinity;
   for (const c of HOUSE_CORNERS) {
@@ -644,6 +690,11 @@ function stairsTo(pos, level) {    // the next point to head for to get to floor
 const _np = new THREE.Vector3();
 function routeGoal(r, goal) {
   const pos = _np.set(r.x, r.y, r.z);
+  let ta = towerAt(pos), tb = towerAt(goal);
+  if (ta && tb !== ta) tb = null;                        // leave this tower before heading anywhere else
+  if (ta) return towerRoute(ta, pos, goal, true, !!tb);     // towers have their own way in and up
+  if (tb && !inHouse(pos)) return towerRoute(tb, pos, goal, false, true);
+  if (tb) goal = tb.doorOut;                             // in the house: get out of it first, towards the tower door
   const a = inHouse(pos), b = inHouse(goal);
   const goalLevel = b ? (levelOf(goal) === 'stairs' ? (goal.y > HOUSE.up / 2 ? 1 : 0) : levelOf(goal)) : 0;
   if (a && levelOf(pos) !== goalLevel) return stairsTo(pos, goalLevel);   // sort out the floor first
@@ -659,6 +710,7 @@ function routeGoal(r, goal) {
 }
 // spots the NPC can stand on (not in a wall, a container, or the stairs)
 function walkable(x, z, y = 0) {
+  if (TOWERS.some((T) => towerDist(T, x, z) < T.avoid + 2.5)) return false;
   if (houseBlocks.some((b) => b.y0 < y + HEAD && b.y1 > y + STEP && Math.abs(x - b.x) < b.hx + 2.5 && Math.abs(z - b.z) < b.hz + 2.5)) return false;
   if (x > STAIRS.x0 - 1.5 && x < STAIRS.x1 + 1.5 && z < STAIRS.zBottom + 2 && z > STAIRS.zTop - 1.5) return false;
   if (y > 0) return upstairsAt(x, z);
@@ -758,6 +810,244 @@ const leg = (x, z, h, s = 0.2, mat = woodMat) => [s, h, s, x, h / 2, z, mat];
   gnome(-24, -34, 0); gnome(-3, -36, -0.6); gnome(-38, -22, Math.PI / 2);
 }
 
+/* ================= Towers: the stone tower and the skyscraper ================= */
+// Really tall buildings with a spiral staircase winding round an open shaft in the middle:
+// step off the inner edge (or jump from the top) and you ragdoll all the way down.
+// round: a stone tower (wall radius R). square: a glass skyscraper (half-width S; R is where its door is).
+const TOWERS = [
+  { name: 'tower', shape: 'round', x: 30, z: -26, R: 9, t: 0.6, H: 60, pitch: 10, rIn: 4.5, rOut: 8.4, steps: 24 },
+  { name: 'skyscraper', shape: 'square', x: -28, z: 28, S: 10, R: 10, t: 0.3, H: 120, pitch: 10, rIn: 4.5, rOut: 9.3, steps: 24, door: 0 },
+];
+const TOWER = TOWERS[0];
+const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+const towerPoint = (T, ang, rad) => new THREE.Vector3(T.x + Math.cos(ang) * rad, 0, T.z + Math.sin(ang) * rad);
+const towerAngle = (T, x, z) => Math.atan2(z - T.z, x - T.x);
+const towerDist = (T, x, z) => Math.hypot(x - T.x, z - T.z);
+for (const T of TOWERS) {
+  if (T.door === undefined) T.door = Math.atan2(-T.z, -T.x);          // doorway facing the middle of the arena
+  T.start = T.door + 0.5;                                              // the stairs start just inside, to one side of the door
+  T.turns = T.H / T.pitch;
+  T.doorOut = towerPoint(T, T.door, T.R + 2.4);
+  T.doorIn = towerPoint(T, T.door, T.R - 2.6);
+  T.laneOut = T.shape === 'round' ? T.R - T.t - 1.2 : T.rOut - 1.1;    // walkers stay inside this on the stairs
+  T.lane = (T.rIn + T.laneOut) / 2;                                    // the middle of the walkable part of the stairs
+  T.avoid = T.shape === 'round' ? T.R : T.S * 1.42;                    // how big it is to walk round outside
+  if (T.shape === 'square') T.cw = T.S - T.t - (T.rOut - 0.6) / Math.SQRT2;   // size of the roof's corner slabs
+}
+const insideFoot = (T, x, z, m = 0) => (T.shape === 'round' ? towerDist(T, x, z) < T.R - m : Math.abs(x - T.x) < T.S - m && Math.abs(z - T.z) < T.S - m);
+const towerAt = (p) => TOWERS.find((T) => insideFoot(T, p.x, p.z, 0.3)) || null;
+// how far round the spiral (0..1 of a turn) a given angle is from where the stairs start
+const towerTurn = (T, ang) => (((ang - T.start) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2);
+function towerSurfaces(x, z, out) {
+  for (const T of TOWERS) {
+    if (!insideFoot(T, x, z)) continue;
+    const d = towerDist(T, x, z);
+    if (d > T.rIn && d < T.rOut) {
+      const f = towerTurn(T, towerAngle(T, x, z));
+      for (let k = 0; k < T.turns; k++) { const h = (f + k) * T.pitch; if (h <= T.H) out.push(h); }
+    }
+    // the top: half a ring round the shaft (left open above the last half-turn of stairs so you can climb out),
+    // plus, in the skyscraper, the corners of its roof outside the ring
+    if (d > T.rIn && (towerTurn(T, towerAngle(T, x, z)) < 0.5 || (T.shape === 'square' && Math.min(Math.abs(x - T.x), Math.abs(z - T.z)) > T.S - T.t - T.cw))) out.push(T.H);
+  }
+}
+const towerBox = new THREE.BoxGeometry(1, 1, 1), UP_AXIS = new THREE.Vector3(0, 1, 0);
+// the spiral steps (one physics body per turn), shared by both kinds of tower
+function buildSpiral(T, mat, topRing) {
+  const { x: cx, z: cz, pitch, rIn, rOut, steps, H } = T;
+  const total = steps * T.turns + (topRing ? steps / 2 : 0), dA = Math.PI * 2 / steps;   // the top ring only goes half way round
+  const mesh = new THREE.InstancedMesh(towerBox, mat, total);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  let body = null;
+  for (let i = 0; i < total; i++) {
+    const ring = i >= steps * T.turns, top = ring ? H : (i + 1) * (pitch / steps);
+    const a = T.start + (i + 0.5) * dA, ro = ring && T.shape === 'round' ? T.R - T.t : rOut, mid = (rIn + ro) / 2, w = ro * dA + 0.15;
+    pos.set(cx + Math.cos(a) * mid, top - 0.3, cz + Math.sin(a) * mid);
+    q.setFromAxisAngle(UP_AXIS, -a);                        // local x points outwards
+    m4.compose(pos, q, sc.set(ro - rIn, 0.6, w)); mesh.setMatrixAt(i, m4);
+    if (i % steps === 0) { if (body) world.addBody(body); body = new CANNON.Body({ mass: 0, material: physMat }); body.position.set(cx, 0, cz); }
+    body.addShape(new CANNON.Box(new CANNON.Vec3((ro - rIn) / 2, 0.3, w / 2)), new CANNON.Vec3(pos.x - cx, pos.y, pos.z - cz), new CANNON.Quaternion(q.x, q.y, q.z, q.w));
+  }
+  world.addBody(body);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  scene.add(mesh); houseMeshes.push(mesh);
+}
+// a solid box (scenery that blocks walking and shots); block: whether walkers bump into it
+function solidBox(sx, sy, sz, x, y, z, mat, block = true, shadow = true) {
+  const m = new THREE.Mesh(towerBox, mat);
+  m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = shadow;
+  scene.add(m); houseMeshes.push(m);
+  const b = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)) });
+  b.position.set(x, y, z); world.addBody(b);
+  if (block) houseBlocks.push({ x, z, hx: sx / 2, hz: sz / 2, y0: y - sy / 2, y1: y + sy / 2 });
+  return m;
+}
+// the stone tower
+{
+  const T = TOWERS[0], { x: cx, z: cz, R, t, H } = T;
+  const stone = stdMat(0x9a9488, 0.95);
+  const n = 36, panelW = 2 * R * Math.sin(Math.PI / n) + 0.15, band = 6, bands = Math.ceil(H / band);
+  const panels = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i + 0.5) * (Math.PI * 2 / n);
+    for (let b = 0; b <= bands; b++) {
+      const y0 = b * band, top = b === bands ? H + (i % 2 ? 2 : 3.2) : Math.min(H, y0 + band);   // battlements at the top
+      if (b === 0 && angDiff(a, T.door) < 0.3) continue;                                             // the doorway
+      if (b > 0 && b < bands && (i * 3 + b * 5) % 12 === 0) continue;                                // windows
+      panels.push([a, y0, top, b]);
+    }
+  }
+  const wallMesh = new THREE.InstancedMesh(towerBox, stone, panels.length);
+  const bodies = {};
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  panels.forEach(([a, y0, y1, b], i) => {
+    const h = y1 - y0, r = R - t / 2;
+    pos.set(cx + Math.cos(a) * r, (y0 + y1) / 2, cz + Math.sin(a) * r);
+    q.setFromAxisAngle(UP_AXIS, -a + Math.PI / 2);          // the panel's local x runs round the circle
+    m4.compose(pos, q, sc.set(panelW, h, t)); wallMesh.setMatrixAt(i, m4);
+    if (!bodies[b]) { bodies[b] = new CANNON.Body({ mass: 0, material: physMat }); bodies[b].position.set(cx, 0, cz); }
+    bodies[b].addShape(new CANNON.Box(new CANNON.Vec3(panelW / 2, h / 2, t / 2)), new CANNON.Vec3(pos.x - cx, pos.y, pos.z - cz), new CANNON.Quaternion(q.x, q.y, q.z, q.w));
+  });
+  for (const b of Object.values(bodies)) world.addBody(b);
+  wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+  scene.add(wallMesh); houseMeshes.push(wallMesh);
+  buildSpiral(T, stdMat(0x7d776c, 0.9), true);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(R - t, 40), stdMat(0x6b665d, 1));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0.014, cz); floor.receiveShadow = true;
+  scene.add(floor);
+  for (const y of [14, 34, 54]) { const l = new THREE.PointLight(0xffe2b0, 30, 30, 1.6); l.position.set(cx, y, cz); scene.add(l); }
+  const pole = new THREE.Mesh(new THREE.BoxGeometry(0.15, 5, 0.15), metalMat);   // a flag on top
+  pole.position.set(cx + R - 1, H + 5.5, cz); scene.add(pole);
+  const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.8, 2.8), stdMat(0xdc2626, 0.7));
+  cloth.position.set(cx + R - 1, H + 7, cz + 1.45); scene.add(cloth);
+}
+// the skyscraper: a glass curtain wall with steel mullions and floor bands, a crown and an antenna spire
+let spireLight = null;
+{
+  const T = TOWERS[1], { x: cx, z: cz, S, t, H } = T;
+  const glass = new THREE.MeshStandardMaterial({ color: 0x6fa8dc, roughness: 0.08, metalness: 0.7, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
+  const steel = stdMat(0xcbd5e1, 0.3, { metalness: 0.8 }), band = stdMat(0x334155, 0.5, { metalness: 0.4 });
+  const concrete = stdMat(0xd1d5db, 0.85);
+  const P = 1.4;                                    // the parapet round the roof
+  // glass walls (the front one has the entrance cut out of it)
+  const dw = 6, dh = 6;
+  solidBox(2 * S, H + P, t, cx, (H + P) / 2, cz - S + t / 2, glass, true, false);                 // north
+  solidBox(2 * S, H + P, t, cx, (H + P) / 2, cz + S - t / 2, glass, true, false);                 // south
+  solidBox(t, H + P, 2 * S, cx - S + t / 2, (H + P) / 2, cz, glass, true, false);                 // west
+  const fx = cx + S - t / 2, side = (2 * S - dw) / 2;                                             // east, with the doors
+  solidBox(t, H + P, side, fx, (H + P) / 2, cz - S + side / 2, glass, true, false);
+  solidBox(t, H + P, side, fx, (H + P) / 2, cz + S - side / 2, glass, true, false);
+  solidBox(t, H + P - dh, dw, fx, dh + (H + P - dh) / 2, cz, glass, true, false);
+  // mullions, floor bands and corner columns (looks only)
+  const deco = [];
+  for (let i = 1; i < 8; i++) {
+    const o = -S + i * (2 * S / 8);
+    deco.push([0.18, H + P, 0.35, cx + o, (H + P) / 2, cz - S - 0.05], [0.18, H + P, 0.35, cx + o, (H + P) / 2, cz + S + 0.05],
+              [0.35, H + P, 0.18, cx - S - 0.05, (H + P) / 2, cz + o]);
+    if (Math.abs(o) > dw / 2) deco.push([0.35, H + P, 0.18, cx + S + 0.05, (H + P) / 2, cz + o]);
+    else deco.push([0.35, H + P - dh, 0.18, cx + S + 0.05, dh + (H + P - dh) / 2, cz + o]);
+  }
+  for (let y = T.pitch; y < H; y += T.pitch / 2) {
+    deco.push([2 * S + 0.3, 0.7, 0.3, cx, y, cz - S - 0.1], [2 * S + 0.3, 0.7, 0.3, cx, y, cz + S + 0.1],
+              [0.3, 0.7, 2 * S + 0.3, cx - S - 0.1, y, cz], [0.3, 0.7, 2 * S + 0.3, cx + S + 0.1, y, cz]);
+  }
+  const decoMesh = new THREE.InstancedMesh(towerBox, steel, deco.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  deco.forEach(([sx, sy, sz, x, y, z], i) => { m4.compose(pos.set(x, y, z), q.identity(), sc.set(sx, sy, sz)); decoMesh.setMatrixAt(i, m4); });
+  decoMesh.castShadow = true; scene.add(decoMesh);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) solidBox(0.9, H + P + 0.4, 0.9, cx + sx * S, (H + P + 0.4) / 2, cz + sz * S, band);   // corner columns
+  solidBox(3, 0.4, dw + 2, cx + S + 1.4, dh + 0.3, cz, band, false);                                 // entrance canopy
+  // the roof: half a ring round the shaft (from buildSpiral) and the four corners outside it
+  const cw = T.cw;                                         // corner squares reaching in to meet the ring
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) solidBox(cw, 0.6, cw, cx + sx * (S - t - cw / 2), H - 0.3, cz + sz * (S - t - cw / 2), concrete, false);
+  // an antenna on the roof with a blinking red light
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.35, 28, 8), steel);
+  antenna.position.set(cx + 7, H + 14, cz - 7); scene.add(antenna);
+  spireLight = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff2020 }));
+  spireLight.position.set(cx + 7, H + 28.4, cz - 7); scene.add(spireLight);
+  buildSpiral(T, concrete, true);
+  const lobby = new THREE.Mesh(new THREE.PlaneGeometry(2 * S - 2 * t, 2 * S - 2 * t), stdMat(0xe5e7eb, 0.4));   // shiny lobby floor
+  lobby.rotation.x = -Math.PI / 2; lobby.position.set(cx, 0.014, cz); lobby.receiveShadow = true;
+  scene.add(lobby);
+}
+// keep standing characters out of tower walls (the doorway lets you through at ground level), and on the stairs
+function pushOutOfTower(r) {
+  for (const T of TOWERS) {
+    const d = towerDist(T, r.x, r.z), a = towerAngle(T, r.x, r.z);
+    if (T.shape === 'round') {
+      const inner = T.laneOut, outer = T.R + 1.2;
+      if (d >= outer || d <= inner || r.y > T.H + 2) continue;
+      if (r.y < 3 && angDiff(a, T.door) < 0.2) continue;
+      const k = d - inner < outer - d ? inner : outer;
+      r.x = T.x + Math.cos(a) * k; r.z = T.z + Math.sin(a) * k;
+    } else if (r.y > 0.5 && r.y < T.H - 0.5 && insideFoot(T, r.x, r.z) && d > T.laneOut) {
+      r.x = T.x + Math.cos(a) * T.laneOut; r.z = T.z + Math.sin(a) * T.laneOut;   // (its walls are ordinary blocks)
+    }
+  }
+}
+// NPC navigation in and around a tower: through the doorway, then round and round the spiral
+function towerRoute(T, pos, goal, inA, inB) {
+  const a = towerAngle(T, pos.x, pos.z), lane = (ang) => towerPoint(T, ang, T.lane);
+  const d = towerDist(T, pos.x, pos.z);
+  const atDoor = d > T.R - 3 && d < T.R + 3 && angDiff(a, T.door) < 0.35 && pos.y < 2;
+  if (!inA) return atDoor || flat(pos, T.doorOut) < 1.5 ? T.doorIn : outsideTo(pos, T.doorOut);   // go in
+  const dy = (inB ? goal.y : 0) - pos.y;
+  if (pos.y < 1.5 && (!inB || Math.abs(dy) < 2)) {            // on the ground floor inside
+    if (inB) return goal;
+    return atDoor || flat(pos, T.doorIn) < 1.5 ? T.doorOut : T.doorIn;
+  }
+  if (pos.y < 0.3) {                                            // heading up: get onto the bottom of the stairs first
+    const s = lane(T.start + 0.15);
+    return flat(pos, s) < 1.5 ? lane(a + 0.5) : s;
+  }
+  if (Math.abs(dy) < 2) {                                       // same level: walk round to them
+    const ga = towerAngle(T, goal.x, goal.z), diff = Math.atan2(Math.sin(ga - a), Math.cos(ga - a));
+    return Math.abs(diff) < 0.3 ? goal : lane(a + Math.sign(diff) * Math.min(0.6, Math.abs(diff)));
+  }
+  return lane(a + Math.sign(dy) * 0.5);                        // up or down the spiral
+}
+// falling down a tower's shaft: bounce off any stairs you touch, back into the middle, so you drop straight to the ground
+function towerFalls(dt) {
+  for (const ch of allChars()) {
+    if (ch.state !== 'ragdoll') { ch.shaftFall = null; continue; }
+    const t = ch.torso.position;
+    const T = ch.shaftFall || TOWERS.find((k) => insideFoot(k, t.x, t.z, 0.3));
+    if (!T || !insideFoot(T, t.x, t.z, 0.3) || t.y < 1.5) { ch.shaftFall = null; continue; }
+    if (!ch.shaftFall) {                     // only once they're really dropping (not just knocked over on a step)
+      const overShaft = towerDist(T, t.x, t.z) < T.rIn;   // out over the open middle: down you go
+      if (t.y < 4 || (!overShaft && ch.torso.velocity.y > -8)) continue;
+      ch.shaftFall = T;
+    }
+    for (const n of NAMES) {
+      const b = ch.parts[n].body, dx = b.position.x - T.x, dz = b.position.z - T.z, d = Math.hypot(dx, dz) || 1;
+      const ix = -dx / d, iz = -dz / d, vIn = b.velocity.x * ix + b.velocity.z * iz;
+      if (d > T.rIn - 0.8) {                 // touching the stairs: bounced back inwards
+        const kick = Math.max(0, 7 - vIn);
+        b.velocity.x += ix * kick; b.velocity.z += iz * kick;
+        if (b.velocity.y > 0) b.velocity.y *= 0.3;   // no bouncing back up
+      } else if (d > 1.2) {                  // drifting: a gentle pull towards the middle
+        b.velocity.x += ix * 10 * dt; b.velocity.z += iz * 10 * dt;
+      }
+    }
+    ch.stillTime = 0;                        // don't try to get up on the way down
+  }
+}
+// outside: if a tower's in the way, go round it
+function aroundTower(pos, target) {
+  for (const T of TOWERS) {
+    const dx = target.x - pos.x, dz = target.z - pos.z, L2 = dx * dx + dz * dz || 1;
+    const t = THREE.MathUtils.clamp(((T.x - pos.x) * dx + (T.z - pos.z) * dz) / L2, 0, 1);
+    const px = pos.x + dx * t, pz = pos.z + dz * t, close = Math.hypot(px - T.x, pz - T.z);
+    if (close > T.avoid + 2 || towerDist(T, target.x, target.z) < T.avoid + 3) continue;
+    const a = close < 0.5 ? Math.atan2(dx, -dz) : Math.atan2(pz - T.z, px - T.x);
+    const wp = towerPoint(T, a, T.avoid + 3.5);
+    if (flat(pos, wp) > 1.5) return wp;
+    const ta = towerAngle(T, target.x, target.z);
+    return towerPoint(T, a + (Math.sign(Math.atan2(Math.sin(ta - a), Math.cos(ta - a))) || 1) * 0.8, T.avoid + 3.5);
+  }
+  return null;
+}
+
 // everything that blocks shots, throws, grabs and the NPC's view
 const sceneryMeshes = [...containerMeshes, ...houseMeshes, ...furnitureMeshes];
 
@@ -776,6 +1066,7 @@ function sfx(type) {
     else if (type === 'bonk') set('sine', 240, 60, 0.3, 0.18);
     else if (type === 'grab') set('triangle', 180, 420, 0.12, 0.15);
     else if (type === 'clang') set('square', 160, 60, 0.12, 0.22);
+    else if (type === 'snipe') set('sawtooth', 1400, 70, 0.09, 0.32);
     else set('triangle', 300, 600, 0.05, 0.1);
     o.connect(g).connect(actx.destination);
     o.start(t); o.stop(t + 0.25);
@@ -988,7 +1279,7 @@ function makePlayer({ key, colors, group, spawn, tracer }, i) {
     ch: new Character({ colors, group, key }), cam: { yaw: 0, pitch: -0.1 }, vel: { x: 0, y: 0, z: 0 },
     ray: { o: new THREE.Vector3(), d: new THREE.Vector3(0, 0, -1) }, joint, drag: null, history: [],
     dragPlane: new THREE.Plane(), grace: 2, downChecked: false, hiding: null, conn: null,
-    cd: { blaster: 0, plant: 0 },     // time (ms) when each tool is ready again
+    cd: { blaster: 0, plant: 0, sniper: 0 },     // time (ms) when each tool is ready again
     skin: colors.skin,
   };
 }
@@ -1022,6 +1313,39 @@ const pBlaster = makeBlaster();
 pBlaster.g.rotation.y = 0.06;
 pBlaster.g.scale.setScalar(0.55);
 held.add(pBlaster.g);
+// the sniper: a long rifle with a scope on top
+function makeSniper() {
+  const g = new THREE.Group();
+  const box = (sx, sy, sz, x, y, z) => { const m = new THREE.Mesh(new RoundedBoxGeometry(sx, sy, sz, 2, 0.01), dark); m.position.set(x, y, z); g.add(m); return m; };
+  box(0.14, 0.18, 0.75, 0, 0, 0);                                   // body
+  box(0.11, 0.24, 0.13, 0, -0.18, 0.2).rotation.x = -0.25;          // grip
+  box(0.12, 0.22, 0.5, 0, -0.04, 0.6);                              // stock
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.95, 12), dark);
+  barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.02, -0.85); g.add(barrel);
+  const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.45, 14), dark);
+  scope.rotation.x = Math.PI / 2; scope.position.set(0, 0.16, -0.05); g.add(scope);
+  box(0.04, 0.07, 0.04, 0, 0.1, -0.2); box(0.04, 0.07, 0.04, 0, 0.1, 0.1);   // scope mounts
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.02, -1.33); g.add(muzzle);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { g, muzzle };
+}
+const pSniper = makeSniper();
+pSniper.g.rotation.y = 0.05;
+pSniper.g.scale.setScalar(0.55);
+held.add(pSniper.g);
+// the scope: hold right-click with the sniper out to zoom right in
+let scoped = false;
+const FOV = 70, SCOPE_FOV = 14;
+const canScope = () => tool === 'sniper' && me.ch.state === 'up';
+function setScoped(on) {
+  on = on && canScope();
+  if (scoped === on) return;
+  scoped = on;
+  document.body.classList.toggle('scoped', on);
+  if (on) pointerNdc.set(0, 0);
+  tScope.classList.toggle('on', on);
+}
+const lookScale = () => camera.fov / FOV;   // slower aiming when zoomed in
 const nBlaster = makeBlaster();    // NPC's blaster, in its right hand
 nBlaster.g.scale.setScalar(1.6);
 nBlaster.g.rotation.x = -Math.PI / 2;
@@ -1126,16 +1450,16 @@ function addFlash(p, size, color = 0xfff2a8) {
   effects.push({ update(dt) { life -= dt; const k = 1 - life / 0.15; m.scale.setScalar(size * (0.6 + k * 1.6)); m.material.opacity = Math.max(0, 1 - k); if (life <= 0) { scene.remove(m); m.material.dispose(); return false; } return true; } });
 }
 const WORDS = {
-  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], furn: ['WHO THREW A CHAIR?!', 'MY FURNITURE!', 'OOF!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], fall: ['AAAAAAAAH!', 'WAAAAAH!', 'NOT THE TOWER!'], furn: ['WHO THREW A CHAIR?!', 'MY FURNITURE!', 'OOF!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
          bin: ['LET ME OUT!', 'IT STINKS IN HERE!', 'NOT THE BIN!'], fridge: ['IT\'S FREEZING!', 'I\'M NOT A SNACK!', 'LET ME OUT!'],
          wardrobe: ['IT\'S DARK IN HERE!', 'NARNIA?!', 'LET ME OUT!'], freezer: ['SO COLD!', 'BRRRR!', 'I\'LL BE A POPSICLE!'],
          bbq: ["IT'S HOT IN HERE!", "I'M NOT A SAUSAGE!", 'TOO SPICY!'], grilled: ['WELL DONE!', 'SIZZLE SIZZLE!', 'MEDIUM RARE!'],
          seen: ['I SAW THAT!', 'NICE TRY!', 'I CAN SEE YOU!'], boo: ['BOO!', 'SURPRISE!', 'GOTCHA!'],
          binned: ['IN THE BIN!', 'TAKE OUT THE TRASH!', 'BYE BYE!'], fridged: ['STAY FRESH!', 'CHILL OUT!', 'BEST BEFORE: NEVER!'],
          closeted: ['GO TO YOUR ROOM!', 'ENJOY NARNIA!', 'STAY IN THERE!'], frozen: ['FROZEN SOLID!', 'STAY COOL!', 'ICE TO MEET YOU!'] },
-  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], fall: ['AAAAAAAAH!', 'WHOOOAAA!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
          bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'], bbq: ['HOT HOT HOT!', 'LET ME OUT!'] },
-  friend: { shot: ['OW!', 'HEY!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  friend: { shot: ['OW!', 'HEY!'], fall: ['AAAAAAAAH!', 'NOOOOOO!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
             bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'], bbq: ['OUCH, HOT!', 'NOT THE BARBECUE!'] },
 };
 function bubble(ch, kind) {
@@ -1224,23 +1548,24 @@ function useCooldown(p, k) {
   p.cd[k] = now + COOLDOWN[k] * 1000;
   return true;
 }
-function doShoot(p, origin, dir, muzzle) {
-  if (p.ch.state !== 'up' || !useCooldown(p, 'blaster')) return;
+// blaster, or (snipe) the sniper: one much harder, longer-range shot
+function doShoot(p, origin, dir, muzzle, snipe = false) {
+  if (p.ch.state !== 'up' || !useCooldown(p, snipe ? 'sniper' : 'blaster')) return;
   raycaster.set(origin, dir);
   const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...plants.map((x) => x.mesh), ...sceneryMeshes, ground], true)[0];
-  const end = hit ? hit.point.clone() : origin.clone().addScaledVector(dir, 90);
-  fx.tracer(muzzle, end, p.tracer); fx.flash(muzzle, 0.3); if (hit) fx.flash(end, 1);
-  fx.sfx('pew', p.key);
+  const end = hit ? hit.point.clone() : origin.clone().addScaledVector(dir, snipe ? 220 : 90);
+  fx.tracer(muzzle, end, snipe ? 0xffffff : p.tracer); fx.flash(muzzle, snipe ? 0.5 : 0.3); if (hit) fx.flash(end, snipe ? 1.6 : 1);
+  fx.sfx(snipe ? 'snipe' : 'pew', p.key);
   if (!hit) return;
-  const r = resolveHit(hit);
+  const r = resolveHit(hit), k = snipe ? 2.1 : 1;
   if (r.body) {
     const h = new THREE.Vector2(dir.x, dir.z).normalize();
-    const up = r.body.char === npc ? 48 : 30;                      // first shot launches them
-    hitChar(r.body.char, r.body, new CANNON.Vec3(dir.x * 45, dir.y * 45 + 10, dir.z * 45), toC(hit.point), 'shot',
-            new CANNON.Vec3(h.x * 10, up, h.y * 10), p.ch);
+    const up = (r.body.char === npc ? 48 : 30) * (snipe ? 1.3 : 1);   // first shot launches them
+    hitChar(r.body.char, r.body, new CANNON.Vec3(dir.x * 45 * k, dir.y * 45 * k + 10, dir.z * 45 * k), toC(hit.point), 'shot',
+            new CANNON.Vec3(h.x * 10 * k, up, h.y * 10 * k), p.ch);
   } else if (r.plant) {
-    r.plant.body.applyImpulse(new CANNON.Vec3(dir.x * 14, dir.y * 14 + 6, dir.z * 14), toC(hit.point).vsub(r.plant.body.position));
-  } else if (r.furn) shove(r.furn, dir, hit.point, p.ch, 9);
+    r.plant.body.applyImpulse(new CANNON.Vec3(dir.x * 14 * k, dir.y * 14 * k + 6, dir.z * 14 * k), toC(hit.point).vsub(r.plant.body.position));
+  } else if (r.furn) shove(r.furn, dir, hit.point, p.ch, 9 * k);
 }
 function doThrow(p, origin, dir) {
   if (p.ch.state !== 'up' || !useCooldown(p, 'plant')) return;
@@ -1542,6 +1867,8 @@ function hostDrivePlayer(p, dt) {
   ch.root.yaw = p.cam.yaw + Math.PI;
   ch.applyPose(ch.pose());
   ch.carry.set(p.vel.x, p.vel.y, p.vel.z);
+  // falling a long way (down the tower, off the landing...) turns you into a ragdoll for the rest of the drop
+  if (p.vel.y < -13 && ch.root.y - groundAt(ch.root.x, ch.root.z, ch.root.y) > 4) { ch.goRagdoll(); fx.bubble(ch, 'fall'); }
 }
 
 /* ================= NPC brain (host only) ================= */
@@ -1709,7 +2036,14 @@ function npcMove(dt, goal, speed, faceYaw, over) {
     r.z = THREE.MathUtils.clamp(r.z + Math.cos(r.yaw) * speed * dt, -ARENA + 2.5, ARENA - 2.5);
     pushOutOfObstacles(r);
     if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }
-    r.y = groundAt(r.x, r.z, r.y);       // up and down the stairs
+    const floorY = groundAt(r.x, r.z, r.y);
+    if (r.y - floorY > 4) {              // walked off an edge: ragdoll all the way down
+      npc.applyPose(npc.pose(over));
+      npc.carry.set(Math.sin(r.yaw) * speed, 0, Math.cos(r.yaw) * speed);
+      npc.goRagdoll(); fx.bubble(npc, 'fall');
+      return;
+    }
+    r.y = floorY;                         // up and down the stairs
     moving = true;
   } else if (faceYaw !== null) turn(faceYaw, 8);
   npc.amp += ((moving ? 0.8 : 0) - npc.amp) * Math.min(1, dt * 10);
@@ -1865,7 +2199,7 @@ function updateCamera(dt) {
   const fp = me.ch.state === 'up';
   document.body.classList.toggle('fp', fp);
   for (const p of PLAYERS) p.ch.setVisible(p !== me || !fp);
-  held.visible = fp;
+  held.visible = fp && !scoped;          // the gun goes away while you look down the scope
   if (fp) {
     const r = me.ch.root;
     const bob = Math.sin(me.ch.phase * 2) * 0.06 * me.ch.amp;
@@ -1885,16 +2219,19 @@ function aimRay() { raycaster.setFromCamera(pointerNdc, camera); return raycaste
 
 /* ================= Local actions (host runs them; guest sends them) ================= */
 const ready = (k) => performance.now() >= me.cd[k];
-function actShoot() {
-  if (me.ch.state !== 'up' || !ready('blaster')) return;
+function actShoot(snipe = false) {
+  const k = snipe ? 'sniper' : 'blaster';
+  if (me.ch.state !== 'up' || !ready(k)) return;
   const ray = aimRay();
   const o = ray.origin.clone(), d = ray.direction.clone();
-  const m = pBlaster.muzzle.getWorldPosition(new THREE.Vector3());
-  held.position.z = -0.95;
+  // scoped, the gun's off screen: the shot comes from just below your eye
+  const m = scoped ? o.clone().addScaledVector(d, 0.6).add(new THREE.Vector3(0, -0.15, 0)) : (snipe ? pSniper : pBlaster).muzzle.getWorldPosition(new THREE.Vector3());
+  held.position.z = snipe ? -0.75 : -0.95;
+  if (snipe) cam.pitch = Math.min(1.45, cam.pitch + 0.04);        // kick
   if (net.role === 'client') {
-    me.cd.blaster = performance.now() + COOLDOWN.blaster * 1000;
-    sfx('pew'); addFlash(m, 0.3); netSend({ t: 'sh', o: o.toArray(), d: d.toArray(), m: m.toArray() });
-  } else doShoot(me, o, d, m);
+    me.cd[k] = performance.now() + COOLDOWN[k] * 1000;
+    sfx(snipe ? 'snipe' : 'pew'); addFlash(m, 0.3); netSend({ t: snipe ? 'sn' : 'sh', o: o.toArray(), d: d.toArray(), m: m.toArray() });
+  } else doShoot(me, o, d, m, snipe);
 }
 function actThrow() {
   if (me.ch.state !== 'up' || !ready('plant')) return;
@@ -1932,7 +2269,7 @@ function makeCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let s = ''; for (let
 function leaveGame(silent) {
   net.leaving = true;
   try { if (net.conn) net.conn.close(); } catch (_) {}
-  for (const p of guests()) { try { p.conn.close(); } catch (_) {} }
+  for (const p of guests()) { try { p.conn.close(); } catch (_) {} p.conn = null; }   // (so their close events are ignored)
   try { if (net.peer) net.peer.destroy(); } catch (_) {}
   net.conn = null; net.peer = null;
   const wasClient = net.role === 'client';
@@ -1940,18 +2277,34 @@ function leaveGame(silent) {
   if (wasClient) becomeSolo();
   else for (const p of PLAYERS) if (p !== P1 && p.ch.active) guestLeft(p);
   net.leaving = false;
-  if (!silent) setStatus('Not connected. You\'re playing solo.');
+  if (!silent) setStatus("Not connected. You're playing solo.");
+  document.getElementById('inviteRow').hidden = true;
   updateScore();
 }
+const inviteRow = document.getElementById('inviteRow'), inviteIn = document.getElementById('inviteIn');
+// a link that opens the game and joins this room straight away. Played from a file or a local dev server,
+// that address won't work for friends elsewhere, so the link points at the public copy of the game instead.
+const PUBLIC_GAME_URL = 'https://taynazdev.github.io/Ragdoll-Showdown/';
+const isLocalCopy = location.protocol === 'file:' || /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname);
+const inviteLink = (code) => `${isLocalCopy ? PUBLIC_GAME_URL : location.origin + location.pathname}?join=${code}`;
 function roomStatus(extra) {
   const n = guests().length;
-  setStatus(`Room code: <b>${net.code}</b><br>${extra ? extra + '<br>' : ''}${n ? `${n + 1} of ${MAX_PLAYERS} players in.` : `Up to ${MAX_PLAYERS - 1} friends can join: on their device, open this same file, press “Play with friends” and enter this code.`}`);
+  setStatus(`Room code: <b>${net.code}</b><br>${extra ? extra + '<br>' : ''}${n ? `${n + 1} of ${MAX_PLAYERS} players in.` : `Up to ${MAX_PLAYERS - 1} friends can join from anywhere: send them the invite link below, or have them open the game, press “Play with friends” and enter the code.`}`);
+  inviteIn.value = inviteLink(net.code);
+  inviteRow.hidden = false;
 }
+const peerProblem = (e) => ({
+  network: 'Couldn\'t reach the matchmaking server. Check your internet connection and try again.',
+  'server-error': 'The matchmaking server had a problem. Try again in a moment.',
+  'socket-error': 'Lost the connection to the matchmaking server. Try again.',
+  'socket-closed': 'Lost the connection to the matchmaking server. Try again.',
+  'browser-incompatible': 'This browser can\'t do online play. Try Chrome, Edge or Firefox.',
+}[e.type] || 'Connection problem: ' + e.type + '. Try again.');
 function hostGame() {
-  if (!window.Peer) { setStatus('Couldn\'t load the multiplayer library — check your internet connection.'); return; }
+  if (!window.Peer) { setStatus('Couldn\'t load the multiplayer library. Check your internet connection.'); return; }
   leaveGame(true);
   const code = net.code = makeCode();
-  const peer = new Peer(ROOM_PREFIX + code, PEER_OPTS);
+  const peer = new Peer(ROOM_PREFIX + code, peerOptions());
   net.peer = peer;
   setStatus('Creating a room…');
   peer.on('open', () => roomStatus());
@@ -1965,32 +2318,66 @@ function hostGame() {
       if (p.conn !== c) return;
       p.conn = null;
       if (!guests().length) net.role = 'solo';
-      if (!net.leaving) { guestLeft(p); roomStatus(`${p.label} left.`); }
+      if (!net.leaving) { guestLeft(p); roomStatus(c.open === false && !p.ch.active ? 'A friend tried to join but couldn\'t connect.' : `${p.label} left.`); }
     };
     c.on('close', gone); c.on('error', gone);
   });
-  peer.on('error', (e) => { if (e.type === 'unavailable-id') hostGame(); else setStatus('Connection problem: ' + e.type + '. Try again.'); });
+  // the matchmaking server can drop us; reconnect so friends can still find the room
+  peer.on('disconnected', () => { if (net.peer === peer && !net.leaving) { try { peer.reconnect(); } catch (_) {} } });
+  peer.on('error', (e) => { if (e.type === 'unavailable-id') hostGame(); else setStatus(peerProblem(e)); });
 }
 function joinGame(code) {
   code = code.trim().toUpperCase();
   if (code.length !== 4) { setStatus('Enter the 4-letter room code from the host.'); return; }
-  if (!window.Peer) { setStatus('Couldn\'t load the multiplayer library — check your internet connection.'); return; }
+  if (!window.Peer) { setStatus('Couldn\'t load the multiplayer library. Check your internet connection.'); return; }
   leaveGame(true);
-  const peer = new Peer(PEER_OPTS);
+  inviteRow.hidden = true;
+  const peer = new Peer(peerOptions());
   net.peer = peer;
   setStatus('Connecting…');
   peer.on('open', () => {
     const c = peer.connect(ROOM_PREFIX + code, { serialization: 'json', reliable: true });
     net.conn = c;
+    let opened = false;
+    setStatus(`Found the matchmaking server, connecting to room <b>${code}</b>…`);
+    const slow = setTimeout(() => {
+      if (!opened && net.conn === c) setStatus(`Still connecting to room <b>${code}</b>… Across different networks this can take a few seconds while the game tries a relay.`);
+    }, 6000);
+    const fail = setTimeout(() => {
+      if (opened || net.conn !== c) return;
+      leaveGame(true);
+      setStatus('Couldn\'t connect to the host. Their network or yours may be blocking direct connections and the free relay may be busy. Try again, or add your own relay server below.');
+      document.getElementById('turnBox').open = true;
+    }, 25000);
     c.on('open', () => {
+      opened = true; clearTimeout(slow); clearTimeout(fail);
       if (net.role !== 'client') { net.role = 'client'; becomeClient(); }
       setStatus(`Connected to room <b>${code}</b>! 🎉`); mpEl.classList.remove('open');
     });
     c.on('data', (m) => { if (net.conn === c) onClientData(m); });   // ignore stragglers after leaving
-    const gone = () => { if (net.conn !== c || net.leaving) return; net.conn = null; net.role = 'solo'; becomeSolo(); setStatus('The host left the game. You\'re playing solo.'); };
+    const gone = () => {
+      if (net.conn !== c || net.leaving) return;
+      clearTimeout(slow); clearTimeout(fail);
+      net.conn = null; net.role = 'solo';
+      if (!opened) { leaveGame(true); setStatus('Couldn\'t connect to the host. Try again, or add your own relay server below.'); document.getElementById('turnBox').open = true; return; }
+      becomeSolo(); setStatus('The host left the game (or the connection dropped). You\'re playing solo.');
+      mpEl.classList.add('open');
+    };
     c.on('close', gone); c.on('error', gone);
   });
-  peer.on('error', (e) => setStatus(e.type === 'peer-unavailable' ? 'No game found with that code. Check it and try again.' : 'Connection problem: ' + e.type + '. Try again.'));
+  peer.on('error', (e) => setStatus(e.type === 'peer-unavailable' ? 'No game found with that code. Check it, and that the host still has the game open.' : peerProblem(e)));
+}
+document.getElementById('copyBtn').onclick = async () => {
+  const btn = document.getElementById('copyBtn');
+  try { await navigator.clipboard.writeText(inviteIn.value); btn.textContent = 'Copied!'; }
+  catch (_) { inviteIn.select(); btn.textContent = 'Press Ctrl+C'; }
+  setTimeout(() => { btn.textContent = 'Copy link'; }, 1600);
+};
+{ // the relay (TURN) settings
+  const t = loadTurn(), url = document.getElementById('turnUrl'), user = document.getElementById('turnUser'), pass = document.getElementById('turnPass');
+  url.value = t.url || ''; user.value = t.user || ''; pass.value = t.pass || '';
+  document.getElementById('turnSave').onclick = () => { saveTurn({ url: url.value.trim(), user: user.value.trim(), pass: pass.value }); setStatus(url.value.trim() ? 'Relay saved. It\'ll be used next time you host or join.' : 'No relay set.'); };
+  document.getElementById('turnClear').onclick = () => { url.value = user.value = pass.value = ''; saveTurn({}); setStatus('Relay cleared.'); };
 }
 
 /* host side */
@@ -1999,10 +2386,11 @@ function spawnPlayer(p) {
   endDrag(p); p.hiding = null; p.jump = null; p.jumpOut = null;
   p.ch.reset(x, z, yaw + Math.PI);
   Object.assign(p.cam, { yaw, pitch: -0.1 });
-  p.vel.x = p.vel.y = p.vel.z = 0; p.grace = 2; p.downChecked = false; p.cd.blaster = p.cd.plant = 0;
+  p.vel.x = p.vel.y = p.vel.z = 0; p.grace = 2; p.downChecked = false; p.cd.blaster = p.cd.plant = p.cd.sniper = 0;
   if (p !== P1) netSendTo(p, { t: 'hi', slot: p.slot, r: [x, 0, z], yaw });
 }
 function guestJoined(p) {
+  furnFull = 59;                             // send them where all the furniture is in the next snapshot
   p.ch.setActive(true);
   scores[p.key] = 0;
   spawnPlayer(p);
@@ -2033,6 +2421,7 @@ function onHostData(p, m) {
       }
       break;
     case 'sh': doShoot(p, v3(m.o), v3(m.d).normalize(), v3(m.m)); break;
+    case 'sn': doShoot(p, v3(m.o), v3(m.d).normalize(), v3(m.m), true); break;
     case 'pl': doThrow(p, v3(m.o), v3(m.d).normalize()); break;
     case 'gr': doGrab(p, v3(m.o), v3(m.d).normalize()); break;
     case 'rl': releaseGrab(p); break;
@@ -2046,6 +2435,7 @@ function onHostData(p, m) {
 function snapshot() {
   const chars = [npc, ...PLAYERS.map((p) => p.ch)].map((ch) => {
     const a = [ch.state, r3(ch.root.x), r3(ch.root.y), r3(ch.root.z), ch.active ? 1 : 0];
+    if (!ch.active) return a;                 // empty player slots: nothing else to send
     for (const n of NAMES) { const b = ch.parts[n].body; a.push(r3(b.position.x), r3(b.position.y), r3(b.position.z), r3(b.quaternion.x), r3(b.quaternion.y), r3(b.quaternion.z), r3(b.quaternion.w)); }
     return a;
   });
@@ -2053,7 +2443,19 @@ function snapshot() {
   return { t: 's', c: chars, p: pl, sc: SCORE_KEYS.map((k) => scores[k]),
            lids: CONTAINERS.map((c) => [c.open ? 1 : 0, r3(c.angle)]), hd: PLAYERS.map((p) => CONTAINERS.indexOf(p.hiding)),
            ai: settings.npcAI ? 1 : 0, ev: outbox.splice(0), dr: doorLeaves.map((l) => r3(l.angle)),
-           fu: FURNITURE.map(({ body: b }) => [r3(b.position.x), r3(b.position.y), r3(b.position.z), r3(b.quaternion.x), r3(b.quaternion.y), r3(b.quaternion.z), r3(b.quaternion.w)]) };
+           fu: furnitureUpdates() };
+}
+// only the furniture that has moved since we last sent it (and everything now and then, for anyone who just joined)
+let furnFull = 0;
+function furnitureUpdates() {
+  const all = ++furnFull % 60 === 0, out = [];
+  FURNITURE.forEach((f, i) => {
+    const b = f.body, p = b.position, q = b.quaternion, s = f.sent;
+    if (!all && s && Math.abs(s[0] - p.x) + Math.abs(s[1] - p.y) + Math.abs(s[2] - p.z) + Math.abs(s[3] - q.x) + Math.abs(s[4] - q.y) + Math.abs(s[5] - q.z) < 0.004) return;
+    f.sent = [p.x, p.y, p.z, q.x, q.y, q.z];
+    out.push([i, r3(p.x), r3(p.y), r3(p.z), r3(q.x), r3(q.y), r3(q.z), r3(q.w)]);
+  });
+  return out;
 }
 
 /* guest side */
@@ -2101,16 +2503,17 @@ function onClientData(m) {
   if (Array.isArray(m.hd)) PLAYERS.forEach((p, i) => { p.hiding = CONTAINERS[m.hd[i]] || null; });
   if (settings.npcAI !== !!m.ai) { settings.npcAI = !!m.ai; updateNpcBtn(); }
   if (Array.isArray(m.dr)) m.dr.forEach((a, i) => { const l = doorLeaves[i]; if (l && l.angle !== a) { l.angle = a; placeLeaf(l); } });
-  if (Array.isArray(m.fu)) m.fu.forEach((a, i) => {
-    const f = FURNITURE[i];
-    if (!f || !a) return;
-    if (!f.net) { f.net = { p: new THREE.Vector3(a[0], a[1], a[2]), q: new THREE.Quaternion(a[3], a[4], a[5], a[6]) }; f.mesh.position.copy(f.net.p); f.mesh.quaternion.copy(f.net.q); }
-    f.net.p.set(a[0], a[1], a[2]); f.net.q.set(a[3], a[4], a[5], a[6]);
-  });
+  if (Array.isArray(m.fu)) for (const a of m.fu) {        // [index, x, y, z, qx, qy, qz, qw] for each piece that moved
+    const f = Array.isArray(a) && FURNITURE[a[0]];
+    if (!f) continue;
+    if (!f.net) { f.net = { p: new THREE.Vector3(a[1], a[2], a[3]), q: new THREE.Quaternion(a[4], a[5], a[6], a[7]) }; f.mesh.position.copy(f.net.p); f.mesh.quaternion.copy(f.net.q); }
+    f.net.p.set(a[1], a[2], a[3]); f.net.q.set(a[4], a[5], a[6], a[7]);
+  }
   [npc, ...PLAYERS.map((p) => p.ch)].forEach((ch, i) => {
     const a = m.c[i];
     if (!a) return;
     ch.setActive(!!a[4]);
+    if (!a[4]) return;                       // an empty slot
     const prev = ch.state;
     ch.state = a[0];
     if (ch === me.ch && ((prev !== 'up' && ch.state === 'up') || needRoot)) {   // you just stood back up (or just joined)
@@ -2141,7 +2544,7 @@ function onClientData(m) {
     if (ev.e === 'tr') addTracer(v3(ev.a), v3(ev.b), ev.c);
     else if (ev.e === 'fl') addFlash(v3(ev.p), ev.s, ev.c);
     else if (ev.e === 'bu') bubble(charByKey(ev.w), ev.k);
-    else if (ev.e === 'sx') { if (!(ev.n === 'pew' && ev.by === me.key)) sfx(ev.n); }
+    else if (ev.e === 'sx') { if (!((ev.n === 'pew' || ev.n === 'snipe') && ev.by === me.key)) sfx(ev.n); }
     else if (ev.e === 'wa') showWarn(ev.k, ev.w);
   }
   gotSnapshot = true;
@@ -2158,7 +2561,7 @@ function clientInterpolate(dt) {
 
 /* ================= Input ================= */
 const isLocked = () => document.pointerLockElement === renderer.domElement;
-const HINTS = { blaster: 'Click to shoot', plant: 'Click to throw a plant', grab: 'Hold click to grab · while holding, hold right-click to charge a throw' };
+const HINTS = { blaster: 'Click to shoot', plant: 'Click to throw a plant', sniper: 'Click to shoot · hold right-click to use the scope', grab: 'Hold click to grab · while holding, hold right-click to charge a throw' };
 function updateHint() {
   const move = 'WASD move · Space jump · Shift sprint';
   const lookTxt = isLocked() ? 'Esc frees mouse' : lockFailed ? 'right-drag to look (mouse lock blocked here)' : 'click to lock mouse';
@@ -2183,10 +2586,12 @@ function setTool(t) {
   tool = t;
   for (const b of document.querySelectorAll('[data-tool]')) b.classList.toggle('active', b.dataset.tool === t);
   pBlaster.g.visible = t === 'blaster';
+  pSniper.g.visible = t === 'sniper';
+  if (t !== 'sniper') setScoped(false);
   heldPlant.visible = t === 'plant';
   hand.visible = t === 'grab';
   handMat.color.setHex(me.skin);       // your own skin colour
-  document.getElementById('tFire').textContent = { blaster: '🔫', plant: '🪴', grab: '✋' }[t];
+  document.getElementById('tFire').textContent = { blaster: '🔫', plant: '🪴', grab: '✋', sniper: '🎯' }[t];
   updateHint();
 }
 for (const b of document.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
@@ -2222,12 +2627,14 @@ document.addEventListener('pointerlockchange', () => {
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); tpDist = THREE.MathUtils.clamp(tpDist + Math.sign(e.deltaY) * 1.5, 5, 24); }, { passive: false });
 function look(dx, dy, s) {
+  s *= lookScale();
   cam.yaw -= dx * s;
   cam.pitch = THREE.MathUtils.clamp(cam.pitch - dy * s, -1.45, 1.45);
 }
 // use the current tool (left click, or the fire button on touch)
 function useTool() {
   if (tool === 'grab') actGrab();
+  else if (tool === 'sniper') actShoot(true);
   else if (tool === 'blaster') { actShoot(); firing = true; nextFire = performance.now() + 140; }
   else actThrow();
 }
@@ -2239,14 +2646,16 @@ window.addEventListener('pointerdown', (e) => {
     looking = { x: e.clientX, y: e.clientY, id: e.pointerId };
     return;
   }
+  if (e.button === 2 && tool === 'sniper') return;      // the scope (handled on mousedown)
   if (e.button === 2 || e.button === 1) { looking = { x: e.clientX, y: e.clientY, id: e.pointerId }; return; }
   if (e.button !== 0) return;
+  if (scoped) return;                         // scoped in: the shot is handled on mousedown (see below)
   setPointer(e);
   tryLock();
   useTool();
 }, { capture: true });
 window.addEventListener('pointermove', (e) => {
-  if (isLocked()) { look(e.movementX || 0, e.movementY || 0, 0.0025); return; }
+  if (isLocked() || (scoped && e.pointerType !== 'touch')) { look(e.movementX || 0, e.movementY || 0, 0.0025); return; }
   if (looking && (e.pointerType !== 'touch' || e.pointerId === looking.id)) {
     look(e.clientX - looking.x, e.clientY - looking.y, e.pointerType === 'touch' ? 0.006 : 0.004);
     looking.x = e.clientX; looking.y = e.clientY;
@@ -2276,8 +2685,14 @@ function releaseCharge() {
   if (net.role === 'client') netSend({ t: 'th', d: d.toArray(), pw });
   else throwHeld(me, d, pw);
 }
-window.addEventListener('mousedown', (e) => { if (e.button === 2 && startCharge()) { looking = null; e.preventDefault(); } });
-window.addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
+window.addEventListener('mousedown', (e) => {
+  // shooting while scoped: with right-click held, a left click doesn't fire a new pointerdown, only mousedown
+  if (e.button === 0 && scoped && e.target === renderer.domElement) { useTool(); return; }
+  if (e.button !== 2) return;
+  if (tool === 'sniper') { setScoped(true); looking = null; e.preventDefault(); return; }
+  if (startCharge()) { looking = null; e.preventDefault(); }
+});
+window.addEventListener('mouseup', (e) => { if (e.button !== 2) return; setScoped(false); releaseCharge(); });
 function pressUse() { if (net.role === 'client') netSend({ t: 'bin' }); else useContainer(me); }      // E
 function pressHide() { if (net.role === 'client') netSend({ t: 'hide' }); else hide(me); }          // F
 
@@ -2336,6 +2751,7 @@ holdButton('tJump', () => keys.add('Space'), () => keys.delete('Space'));
 holdButton('tE', () => pressUse());
 holdButton('tF', () => pressHide());
 const tThrow = holdButton('tThrow', () => startCharge(), () => releaseCharge());
+const tScope = holdButton('tScope', () => setScoped(!scoped));      // tap to look down the scope, tap again to stop
 const promptEl = document.getElementById('prompt');
 let promptHtml = '';
 function updateContainerPrompt() {
@@ -2362,6 +2778,8 @@ function updateChargeUI() {
   chargeEl.style.display = chargeStart ? 'block' : 'none';
   if (chargeStart) chargeFill.style.width = (chargePower() * 100) + '%';
   tThrow.hidden = !(tool === 'grab' && grabHeld && me.ch.state === 'up');
+  tScope.hidden = tool !== 'sniper' || me.ch.state !== 'up';
+  if (scoped && !canScope()) setScoped(false);           // knocked down, or switched tools
 }
 window.addEventListener('pointercancel', (e) => {
   if (looking && e.pointerId === looking.id) looking = null;
@@ -2379,6 +2797,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === '1') setTool('blaster');
   else if (e.key === '2') setTool('plant');
   else if (e.key === '3') setTool('grab');
+  else if (e.key === '4') setTool('sniper');
   else if (e.key === 'r' || e.key === 'R') requestReset();
 });
 
@@ -2411,6 +2830,7 @@ function hostFrame(dt, now) {
   for (const p of players()) hostDrivePlayer(p, dt);
   updateNpc(dt);
   for (const p of players()) updateDrag(p);
+  towerFalls(dt);
   world.step(1 / 120, dt, 12);
   for (const ch of allChars()) {
     if (!ch.pendingHits.length) continue;
@@ -2443,9 +2863,9 @@ function clientFrame(dt, now) {
   clientInterpolate(dt);
 }
 const cdBar = document.getElementById('cdbar'), cdFill = cdBar.firstElementChild;
-const cdBtn = { blaster: document.querySelector('[data-tool="blaster"] .cd'), plant: document.querySelector('[data-tool="plant"] .cd') };
+const cdBtn = Object.fromEntries(['blaster', 'plant', 'sniper'].map((k) => [k, document.querySelector(`[data-tool="${k}"] .cd`)]));
 function updateCooldownUI(now) {
-  for (const k of ['blaster', 'plant']) {
+  for (const k of ['blaster', 'plant', 'sniper']) {
     const left = Math.max(0, me.cd[k] - now) / (COOLDOWN[k] * 1000);   // 1 → just used, 0 → ready
     cdBtn[k].style.width = (left * 100) + '%';
     if (k === tool) {
@@ -2462,8 +2882,11 @@ function frame() {
   updateCooldownUI(now);
   if (me.ch.state + !!me.hiding !== lastMeState) { lastMeState = me.ch.state + !!me.hiding; updateHint(); }
   updateCamera(dt);
+  const wantFov = scoped ? SCOPE_FOV : FOV;          // zoom in and out of the scope
+  if (Math.abs(camera.fov - wantFov) > 0.05) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 14); camera.updateProjectionMatrix(); }
   // the roof hides while you're indoors (or the camera is) so you can see what's going on
   roof.visible = !(inHouse(me.ch.state === 'up' ? me.ch.root : me.ch.parts.torso.mesh.position, 0.5) || (inHouse(camera.position, 0.5) && camera.position.y < ROOF_Y + 2));
+  if (spireLight) spireLight.visible = now % 1600 < 800;      // the skyscraper's aircraft warning light blinks
   held.position.z += (-1.1 - held.position.z) * Math.min(1, dt * 14);
   updateChargeUI();
   updateContainerPrompt();
@@ -2486,6 +2909,15 @@ lockFailed = !('requestPointerLock' in renderer.domElement);
 setTool('blaster');
 reset();
 frame();
+// opened from an invite link (…?join=ABCD): join that room straight away
+{
+  const code = new URLSearchParams(location.search).get('join');
+  if (code) {
+    document.getElementById('codeIn').value = code.toUpperCase().slice(0, 4);
+    mpEl.classList.add('open');
+    joinGame(code);
+  }
+}
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
