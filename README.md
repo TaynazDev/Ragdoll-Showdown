@@ -187,7 +187,7 @@ You can play on the same Wi-Fi **or across the internet** with friends on differ
 - The **host runs all the physics**, so use the faster computer and the better connection to host. Keep the host's game tab in front: browsers pause background tabs, which freezes the game for everyone.
 - Each guest sends its movement and actions to the host and receives the game state about 30 times a second. Only furniture that moved is sent.
 - Players find each other through PeerJS's free public matchmaking server. The game then connects device-to-device, using STUN servers to find a way through each home router.
-- When a direct connection isn't possible (some strict routers, office or school networks and mobile data), it falls back to PeerJS's free **TURN relay**, which passes the traffic along.
+- When a direct connection isn't possible (some strict routers, office or school networks and mobile data), it falls back to a **TURN relay** that passes the traffic along. The game has a Metered.ca relay built in (including ports 80 and 443, which get through most strict networks), with PeerJS's free relay as a backup.
 - **Still can't connect?** In the dialog, open **Can't connect? Use your own relay server** and enter a TURN server you have access to (address, username and password). Everyone in the game should add the same one. It's saved in that browser only.
 - **Invite links** point at the public copy of the game (https://taynazdev.github.io/Ragdoll-Showdown/) when you host from a local file or a local dev server, so they work for friends elsewhere. That public copy needs this version of the game, so push it to GitHub Pages first.
 - If PeerJS's server is unreachable, online play fails, but solo play still works.

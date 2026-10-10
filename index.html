@@ -150,18 +150,20 @@
     <div class="row" id="inviteRow" hidden><input id="inviteIn" readonly aria-label="Invite link"><button id="copyBtn" class="mp">Copy link</button></div>
     <details id="turnBox">
       <summary>Can't connect? Use your own relay server</summary>
-      <p>The game tries a direct connection first, then PeerJS's free relay. If that's busy, add a TURN server you have access to (from a TURN provider, or one you run yourself). Everyone in the game should add the same one. It's saved in this browser only.</p>
+      <p>The game tries a direct connection first, then its built-in relays (Metered and PeerJS). If those don't work, add a TURN server you have access to (from a TURN provider, or one you run yourself). Everyone in the game should add the same one. It's saved in this browser only.</p>
       <input id="turnUrl" placeholder="turn:example.com:3478" autocomplete="off" spellcheck="false">
       <div class="row"><input id="turnUser" placeholder="username" autocomplete="off" spellcheck="false"><input id="turnPass" placeholder="password" type="password" autocomplete="off"></div>
       <div class="row"><button id="turnSave" class="mp" style="flex:1">Save relay</button><button id="turnClear" class="ghost">Clear</button></div>
     </details>
     <div class="foot"><button id="leaveBtn" class="ghost">Leave game</button><button id="closeBtn" class="ghost">Close</button></div>
+    <div id="mpVersion" style="margin-top:10px;font-size:11px;color:#6b7280"></div>
   </div>
 </div>
 
 <script type="module">
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as CANNON from 'cannon-es';
 
 /* ================= Constants & shared state ================= */
@@ -184,9 +186,14 @@ const HOLD_MAX = 4.5;                            // how far in front of you a gr
 // STUN servers help each device find its public address so this works across different networks; when a direct
 // line is impossible (strict routers, some mobile networks) a TURN relay passes the traffic along instead.
 // PeerJS runs a free relay; you can add your own in the "Play with friends" dialog (saved in this browser).
+// Our own relay is a Metered.ca TURN credential (anyone reading this page can see it; if it gets abused, remove it in
+// the Metered dashboard, add a new one and paste its username/password here). PeerJS's free relay is the fallback.
+const METERED = { username: '50448d3f2a7b378e5b27d848', credential: '/oRixYAI9j6dBYK5' };
 const ICE_SERVERS = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.relay.metered.ca:80'] },
+  { urls: ['turn:global.relay.metered.ca:80', 'turn:global.relay.metered.ca:80?transport=tcp',
+           'turn:global.relay.metered.ca:443', 'turns:global.relay.metered.ca:443?transport=tcp'], ...METERED },
   { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
 ];
 const TURN_KEY = 'ragdoll-showdown-turn';
@@ -198,6 +205,9 @@ function peerOptions() {
   return { config: { iceServers: ice } };
 }
 const ROOM_PREFIX = 'ragdoll-showdown-v1-';
+// bump this whenever you publish changes: it's shown in the multiplayer dialog, and guests are warned if the host's differs
+// (a device can keep showing an old cached copy of the page until it's refreshed)
+const GAME_VERSION = '2026.10.10-c';
 let tool = 'blaster';
 let firing = false, nextFire = 0, looking = null, lockFailed = false, tpDist = 11;
 const keys = new Set();
@@ -852,11 +862,15 @@ function towerSurfaces(x, z, out) {
   }
 }
 const towerBox = new THREE.BoxGeometry(1, 1, 1), UP_AXIS = new THREE.Vector3(0, 1, 0);
+// lots of boxes (one matrix each) merged into a single mesh: one draw call, and plain geometry that draws on every device
+function mergedBoxes(matrices, mat) {
+  return new THREE.Mesh(mergeGeometries(matrices.map((m) => towerBox.clone().applyMatrix4(m))), mat);
+}
 // the spiral steps (one physics body per turn), shared by both kinds of tower
 function buildSpiral(T, mat, topRing) {
   const { x: cx, z: cz, pitch, rIn, rOut, steps, H } = T;
   const total = steps * T.turns + (topRing ? steps / 2 : 0), dA = Math.PI * 2 / steps;   // the top ring only goes half way round
-  const mesh = new THREE.InstancedMesh(towerBox, mat, total);
+  const boxes = [];
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
   let body = null;
   for (let i = 0; i < total; i++) {
@@ -864,11 +878,12 @@ function buildSpiral(T, mat, topRing) {
     const a = T.start + (i + 0.5) * dA, ro = ring && T.shape === 'round' ? T.R - T.t : rOut, mid = (rIn + ro) / 2, w = ro * dA + 0.15;
     pos.set(cx + Math.cos(a) * mid, top - 0.3, cz + Math.sin(a) * mid);
     q.setFromAxisAngle(UP_AXIS, -a);                        // local x points outwards
-    m4.compose(pos, q, sc.set(ro - rIn, 0.6, w)); mesh.setMatrixAt(i, m4);
+    boxes.push(m4.compose(pos, q, sc.set(ro - rIn, 0.6, w)).clone());
     if (i % steps === 0) { if (body) world.addBody(body); body = new CANNON.Body({ mass: 0, material: physMat }); body.position.set(cx, 0, cz); }
     body.addShape(new CANNON.Box(new CANNON.Vec3((ro - rIn) / 2, 0.3, w / 2)), new CANNON.Vec3(pos.x - cx, pos.y, pos.z - cz), new CANNON.Quaternion(q.x, q.y, q.z, q.w));
   }
   world.addBody(body);
+  const mesh = mergedBoxes(boxes, mat);
   mesh.castShadow = true; mesh.receiveShadow = true;
   scene.add(mesh); houseMeshes.push(mesh);
 }
@@ -897,18 +912,19 @@ function solidBox(sx, sy, sz, x, y, z, mat, block = true, shadow = true) {
       panels.push([a, y0, top, b]);
     }
   }
-  const wallMesh = new THREE.InstancedMesh(towerBox, stone, panels.length);
+  const boxes = [];
   const bodies = {};
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
   panels.forEach(([a, y0, y1, b], i) => {
     const h = y1 - y0, r = R - t / 2;
     pos.set(cx + Math.cos(a) * r, (y0 + y1) / 2, cz + Math.sin(a) * r);
     q.setFromAxisAngle(UP_AXIS, -a + Math.PI / 2);          // the panel's local x runs round the circle
-    m4.compose(pos, q, sc.set(panelW, h, t)); wallMesh.setMatrixAt(i, m4);
+    boxes.push(m4.compose(pos, q, sc.set(panelW, h, t)).clone());
     if (!bodies[b]) { bodies[b] = new CANNON.Body({ mass: 0, material: physMat }); bodies[b].position.set(cx, 0, cz); }
     bodies[b].addShape(new CANNON.Box(new CANNON.Vec3(panelW / 2, h / 2, t / 2)), new CANNON.Vec3(pos.x - cx, pos.y, pos.z - cz), new CANNON.Quaternion(q.x, q.y, q.z, q.w));
   });
   for (const b of Object.values(bodies)) world.addBody(b);
+  const wallMesh = mergedBoxes(boxes, stone);
   wallMesh.castShadow = true; wallMesh.receiveShadow = true;
   scene.add(wallMesh); houseMeshes.push(wallMesh);
   buildSpiral(T, stdMat(0x7d776c, 0.9), true);
@@ -951,9 +967,9 @@ let spireLight = null;
     deco.push([2 * S + 0.3, 0.7, 0.3, cx, y, cz - S - 0.1], [2 * S + 0.3, 0.7, 0.3, cx, y, cz + S + 0.1],
               [0.3, 0.7, 2 * S + 0.3, cx - S - 0.1, y, cz], [0.3, 0.7, 2 * S + 0.3, cx + S + 0.1, y, cz]);
   }
-  const decoMesh = new THREE.InstancedMesh(towerBox, steel, deco.length);
+
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
-  deco.forEach(([sx, sy, sz, x, y, z], i) => { m4.compose(pos.set(x, y, z), q.identity(), sc.set(sx, sy, sz)); decoMesh.setMatrixAt(i, m4); });
+  const decoMesh = mergedBoxes(deco.map(([sx, sy, sz, x, y, z]) => new THREE.Matrix4().compose(pos.set(x, y, z), q.identity(), sc.set(sx, sy, sz))), steel);
   decoMesh.castShadow = true; scene.add(decoMesh);
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) solidBox(0.9, H + P + 0.4, 0.9, cx + sx * S, (H + P + 0.4) / 2, cz + sz * S, band);   // corner columns
   solidBox(3, 0.4, dw + 2, cx + S + 1.4, dh + 0.3, cz, band, false);                                 // entrance canopy
@@ -2257,6 +2273,7 @@ function actRelease() {
 // The host runs the game; each guest has their own connection to the host and takes a free slot (P2–P4).
 const net = { role: 'solo', peer: null, conn: null, lastSend: 0, leaving: false, code: '' };
 const mpEl = document.getElementById('mp'), mpStatus = document.getElementById('mpStatus');
+document.getElementById('mpVersion').textContent = 'Game version ' + GAME_VERSION;
 const setStatus = (html) => { mpStatus.innerHTML = html; };
 const guests = () => PLAYERS.filter((p) => p.conn);
 function sendOn(c, msg) { try { if (c && c.open) c.send(msg); } catch (_) {} }
@@ -2387,7 +2404,7 @@ function spawnPlayer(p) {
   p.ch.reset(x, z, yaw + Math.PI);
   Object.assign(p.cam, { yaw, pitch: -0.1 });
   p.vel.x = p.vel.y = p.vel.z = 0; p.grace = 2; p.downChecked = false; p.cd.blaster = p.cd.plant = p.cd.sniper = 0;
-  if (p !== P1) netSendTo(p, { t: 'hi', slot: p.slot, r: [x, 0, z], yaw });
+  if (p !== P1) netSendTo(p, { t: 'hi', slot: p.slot, r: [x, 0, z], yaw, v: GAME_VERSION });
 }
 function guestJoined(p) {
   furnFull = 59;                             // send them where all the furniture is in the next snapshot
@@ -2489,6 +2506,10 @@ function onClientData(m) {
   if (m.t === 'full') { leaveGame(true); setStatus(`That room is full (${MAX_PLAYERS} players max).`); return; }
   if (net.role !== 'client') { net.role = 'client'; becomeClient(); }   // data can beat the 'open' event
   if (m.t === 'hi') {
+    if (m.v !== undefined && m.v !== GAME_VERSION) {   // one of you has an old copy of the game
+      setStatus(`Connected, but the host has a different version of the game (theirs: <b>${m.v}</b>, yours: <b>${GAME_VERSION}</b>). Things may not match up: both of you refresh the page to get the latest.`);
+      mpEl.classList.add('open');
+    }
     if (PLAYERS[m.slot] && PLAYERS[m.slot] !== me) setMe(PLAYERS[m.slot]);
     gotSlot = true;
     Object.assign(me.ch.root, { x: m.r[0], y: 0, z: m.r[2] });
