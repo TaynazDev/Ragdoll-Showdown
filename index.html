@@ -167,7 +167,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as CANNON from 'cannon-es';
 
 /* ================= Constants & shared state ================= */
-const GRAVITY = 30, ARENA = 44, WANDER = 36;
+const GRAVITY = 30, ARENA = 70, WANDER = 56;
+// the middle of the arena (where the crossroads are): the open ground between the house, the tower and the skyscraper
+const AC = { x: 10, z: 8 };
+const clampX = (v, m) => THREE.MathUtils.clamp(v, AC.x - ARENA + m, AC.x + ARENA - m);
+const clampZ = (v, m) => THREE.MathUtils.clamp(v, AC.z - ARENA + m, AC.z + ARENA - m);
 const GROUP = { WORLD: 1, WALL: 2, NPC: 4, P1: 8, P2: 16, P3: 32, P4: 64 };
 const ALL_CHARS = GROUP.NPC | GROUP.P1 | GROUP.P2 | GROUP.P3 | GROUP.P4;
 const MAX_PLAYERS = 4;
@@ -207,7 +211,7 @@ function peerOptions() {
 const ROOM_PREFIX = 'ragdoll-showdown-v1-';
 // bump this whenever you publish changes: it's shown in the multiplayer dialog, and guests are warned if the host's differs
 // (a device can keep showing an old cached copy of the page until it's refreshed)
-const GAME_VERSION = '2026.10.10-c';
+const GAME_VERSION = '2026.10.10-g';
 let tool = 'blaster';
 let firing = false, nextFire = 0, looking = null, lockFailed = false, tpDist = 11;
 const keys = new Set();
@@ -231,28 +235,29 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe3f3);
-scene.fog = new THREE.Fog(0xcfe3f3, 90, 190);
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 300);
+scene.fog = new THREE.Fog(0xcfe3f3, 120, 280);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 420);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f70, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 1.7);
-sun.position.set(36, 88, 44);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 230 });
+Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 260 });
+sun.position.set(AC.x + 36, 88, AC.z + 44); sun.target.position.set(AC.x, 0, AC.z); scene.add(sun.target);
 scene.add(sun);
 
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0xe9eef2, roughness: 1 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(320, 320), new THREE.MeshStandardMaterial({ color: 0xe9eef2, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2;
+ground.position.set(AC.x, 0, AC.z);
 ground.receiveShadow = true;
 scene.add(ground);
-const grid = new THREE.GridHelper(ARENA * 2, 44, 0xb3c0cb, 0xd2dae1);
-grid.position.y = 0.01;
+const grid = new THREE.GridHelper(ARENA * 2, 70, 0xb3c0cb, 0xd2dae1);
+grid.position.set(AC.x, 0.01, AC.z);
 scene.add(grid);
 const borderMat = new THREE.MeshStandardMaterial({ color: 0xa7b4c0, roughness: 0.9 });
-const BORDER = [[0, ARENA, ARENA * 2 + 0.6, 0.6], [0, -ARENA, ARENA * 2 + 0.6, 0.6], [ARENA, 0, 0.6, ARENA * 2], [-ARENA, 0, 0.6, ARENA * 2]];
+const BORDER = [[AC.x, AC.z + ARENA, ARENA * 2 + 0.6, 0.6], [AC.x, AC.z - ARENA, ARENA * 2 + 0.6, 0.6], [AC.x + ARENA, AC.z, 0.6, ARENA * 2], [AC.x - ARENA, AC.z, 0.6, ARENA * 2]];
 for (const [x, z, w, d] of BORDER) {
   const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.6, d), borderMat);
   b.position.set(x, 0.3, z); b.receiveShadow = true; b.castShadow = true; scene.add(b);
@@ -267,7 +272,7 @@ world.defaultContactMaterial = new CANNON.ContactMaterial(physMat, physMat, { fr
 const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: physMat });
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(groundBody);
-for (const [x, z, ry] of [[ARENA, 0, -Math.PI / 2], [-ARENA, 0, Math.PI / 2], [0, ARENA, Math.PI], [0, -ARENA, 0]]) {
+for (const [x, z, ry] of [[AC.x + ARENA, AC.z, -Math.PI / 2], [AC.x - ARENA, AC.z, Math.PI / 2], [AC.x, AC.z + ARENA, Math.PI], [AC.x, AC.z - ARENA, 0]]) {
   const wall = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: physMat });
   wall.position.set(x, 0, z);
   wall.quaternion.setFromEuler(0, ry, 0);
@@ -367,7 +372,7 @@ const wardrobe = (id, x, z, ry, base) => makeContainer({ id, talk: 'wardrobe', n
     rail.rotation.z = Math.PI / 2; rail.position.set(0, c.h - 0.9, 0); c.group.add(rail);     // clothes rail
   } });
 const CONTAINERS = [
-  makeContainer({ id: 'bin', name: 'bin', done: 'binned', kind: 'lid', x: 6, z: -14, ry: Math.PI / 2, w: 5.6, h: 3.6, d: 4.2, t: 0.3,   // outside, by the house
+  makeContainer({ id: 'bin', name: 'bin', done: 'binned', kind: 'lid', x: 22, z: -10, ry: 0, w: 5.6, h: 3.6, d: 4.2, t: 0.3,   // outside, by the roadside
     mat: stdMat(0x2f7d4f), inMat: stdMat(0x1d4a31, 0.9), doorMat: stdMat(0x245f3c, 0.5),
     build(c) {
       addBox(c, c.group, c.w + 0.2, 0.18, 0.18, 0, c.h - 0.1, c.d / 2 + 0.02, c.doorMat);   // front rim
@@ -579,7 +584,7 @@ const flatRect = (w, d, color, x, y, z) => {    // rugs, mats and floors
 }
 // the garden behind the house (and down its left side): grass, a patio with the barbecue, flower beds and trees
 {
-  const e = ARENA - 0.3;
+  const e = 43.7;                            // how far the garden reaches
   flatRect(e + 2, e + HOUSE.z0, 0x6aa84f, (-e + 2) / 2, 0.012, (-e + HOUSE.z0) / 2);             // behind the house
   flatRect(e + HOUSE.x0, HOUSE.z1 - HOUSE.z0, 0x6aa84f, (-e + HOUSE.x0) / 2, 0.012, (HOUSE.z0 + HOUSE.z1) / 2);   // down the left side
   flatRect(9, 7, 0xa8a29e, -18, 0.02, -38);                                       // patio
@@ -642,7 +647,22 @@ function groundAt(x, z, y) {
 // something at head/body height in the way (like the side of the stairs)? then you can't walk there
 const tooHigh = (x, z, y) => surfacesAt(x, z).some((s) => s > y + STEP && s < y + HEAD);
 // keep standing characters out of walls and containers
-function pushOutOfObstacles(r) {
+// cars are solid to walk into (and to other cars)
+function pushOutOfCars(r, skip) {
+  if (r.y > 3) return;
+  for (const c of CARS) {
+    if (c === skip) continue;
+    const p = c.mesh.position, yaw = c.mesh.rotation.y, s = Math.sin(yaw), co = Math.cos(yaw);
+    const dx = r.x - p.x, dz = r.z - p.z, along = dx * s + dz * co, side = dx * co - dz * s;
+    const hl = CAR.l / 2 + 1.2, hw = CAR.w / 2 + 1.2;
+    if (Math.abs(along) >= hl || Math.abs(side) >= hw) continue;
+    let a = along, sd = side;
+    if (hl - Math.abs(along) < hw - Math.abs(side)) a = Math.sign(along || 1) * hl; else sd = Math.sign(side || 1) * hw;
+    r.x = p.x + a * s + sd * co; r.z = p.z + a * co - sd * s;
+  }
+}
+function pushOutOfObstacles(r, skipCar = null) {
+  pushOutOfCars(r, skipCar);
   pushOutOfTower(r);
   pushOutOfContainers(r);
   // a door that isn't open far enough yet stops you, so you have to push it open
@@ -1064,6 +1084,267 @@ function aroundTower(pos, target) {
   return null;
 }
 
+/* ================= Roads and cars ================= */
+// A two-lane ring road loops round all the buildings, and two roads cross at a junction in the middle.
+// Big open-top cars are parked round them: walk up to one and press E to drive it, E again to get out.
+// Run people over and they go flying.
+const ROAD = { R: 61, corner: 12, w: 10, lane: 2.5 };      // R: half-size of the ring (centre line), w: road width
+const CROSS_END = ROAD.R - ROAD.w / 2;                       // where the crossroads meet the ring
+{
+  const asphalt = stdMat(0x3a3f47, 0.95), white = stdMat(0xf8fafc, 0.6), yellow = stdMat(0xfacc15, 0.6);
+  // the ring: a rounded square with a rounded-square hole
+  const rounded = (path, h, r) => {
+    path.moveTo(-h + r, -h); path.lineTo(h - r, -h); path.quadraticCurveTo(h, -h, h, -h + r);
+    path.lineTo(h, h - r); path.quadraticCurveTo(h, h, h - r, h); path.lineTo(-h + r, h);
+    path.quadraticCurveTo(-h, h, -h, h - r); path.lineTo(-h, -h + r); path.quadraticCurveTo(-h, -h, -h + r, -h);
+    return path;
+  };
+  const shape = rounded(new THREE.Shape(), ROAD.R + ROAD.w / 2, ROAD.corner + ROAD.w / 2);
+  shape.holes.push(rounded(new THREE.Path(), ROAD.R - ROAD.w / 2, ROAD.corner - ROAD.w / 2));
+  const ring = new THREE.Mesh(new THREE.ShapeGeometry(shape, 12), asphalt);
+  ring.rotation.x = -Math.PI / 2; ring.position.set(AC.x, 0.017, AC.z); ring.receiveShadow = true;
+  scene.add(ring);
+  for (const alongZ of [true, false]) {                       // the two roads across the middle
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ROAD.w, 2 * CROSS_END), asphalt);
+    m.rotation.x = -Math.PI / 2; if (!alongZ) m.rotation.z = Math.PI / 2;
+    m.position.set(AC.x, 0.019, AC.z); m.receiveShadow = true; scene.add(m);
+  }
+  // markings: dashed lines down the middle, stop lines and zebra crossings at the junction
+  const marks = [], yel = [], M = (sx, sz, x, z) => new THREE.Matrix4().compose(new THREE.Vector3(x, 0.03, z), new THREE.Quaternion(), new THREE.Vector3(sx, 0.02, sz));
+  for (let s = -ROAD.R + ROAD.corner; s < ROAD.R - ROAD.corner; s += 5) {
+    for (const [x, z, sx, sz] of [[s, -ROAD.R, 2.4, 0.25], [s, ROAD.R, 2.4, 0.25], [-ROAD.R, s, 0.25, 2.4], [ROAD.R, s, 0.25, 2.4]]) yel.push(M(sx, sz, AC.x + x, AC.z + z));
+  }
+  for (let s = -CROSS_END + 3; s < CROSS_END - 3; s += 5) {
+    if (Math.abs(s) < 11) continue;                           // not through the junction
+    yel.push(M(0.25, 2.4, AC.x, AC.z + s), M(2.4, 0.25, AC.x + s, AC.z));
+  }
+  for (const sgn of [-1, 1]) {
+    for (let k = -4; k <= 4; k += 1.6) {                      // zebra crossings on all four arms
+      marks.push(M(0.8, 3, AC.x + k * 1.0, AC.z + sgn * 8), M(3, 0.8, AC.x + sgn * 8, AC.z + k * 1.0));
+    }
+    marks.push(M(ROAD.w / 2, 0.5, AC.x + sgn * ROAD.lane, AC.z + sgn * 10.2), M(0.5, ROAD.w / 2, AC.x + sgn * 10.2, AC.z - sgn * ROAD.lane));   // stop lines
+  }
+  scene.add(mergedBoxes(marks, white), mergedBoxes(yel, yellow));
+}
+// the car park: the square between the crossroads and the ring road, south-east of the junction.
+// Three rows of bays with an aisle, entrances off both cross roads, kerbs, lamp posts, a ticket machine and a P sign.
+const PARK = { x0: AC.x + ROAD.w / 2 + 1, x1: AC.x + ROAD.R - ROAD.w / 2 - 1, z0: AC.z + ROAD.w / 2 + 2, z1: AC.z + ROAD.R - ROAD.w / 2 - 1 };
+PARK.bayW = 6.5; PARK.bayD = 11; PARK.bx0 = PARK.x0 + 4;           // bays start a little in from the entrance side
+PARK.rows = [                                                       // [z of the row's middle, which way the cars face]
+  { z: PARK.z0 + 1 + PARK.bayD / 2, yaw: 0 },                       // faces the aisle
+  { z: PARK.z0 + 1 + PARK.bayD * 1.5 + 9, yaw: Math.PI },           // across the aisle, facing it
+  { z: PARK.z0 + 1 + PARK.bayD * 2.5 + 9, yaw: 0 },                 // back to back with the middle row
+];
+PARK.aisle = (PARK.rows[0].z + PARK.rows[1].z) / 2;
+const bayX = (i) => PARK.bx0 + PARK.bayW * (i + 0.5);
+{
+  const { x0, x1, z0, z1, bayW, bayD, bx0 } = PARK;
+  const surface = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), stdMat(0x4b5059, 0.95));
+  surface.rotation.x = -Math.PI / 2; surface.position.set((x0 + x1) / 2, 0.016, (z0 + z1) / 2); surface.receiveShadow = true;
+  scene.add(surface);
+  // painted bay lines
+  const lines = [], M = (sx, sz, x, z) => new THREE.Matrix4().compose(new THREE.Vector3(x, 0.028, z), new THREE.Quaternion(), new THREE.Vector3(sx, 0.02, sz));
+  const nBays = Math.floor((x1 - 2 - bx0) / bayW);
+  PARK.nBays = nBays;
+  for (const row of PARK.rows) {
+    for (let i = 0; i <= nBays; i++) lines.push(M(0.25, bayD, bx0 + i * bayW, row.z));
+    const back = row.z - Math.cos(row.yaw) * bayD / 2;                // the line along the back of the bays
+    lines.push(M(nBays * bayW, 0.25, bx0 + nBays * bayW / 2, back));
+  }
+  for (let x = bx0 + 2; x < bx0 + nBays * bayW; x += 5) lines.push(M(2.4, 0.3, x, PARK.aisle));   // dashes down the aisle
+  // arrows painted on the aisle
+  const arrows = [];
+  for (const x of [bx0 + bayW * 1.5, bx0 + bayW * (nBays - 1.5)]) arrows.push(M(3, 0.4, x, PARK.aisle - 2.2), M(0.4, 1.4, x + 1.2, PARK.aisle - 2.2));
+  scene.add(mergedBoxes([...lines, ...arrows], stdMat(0xf8fafc, 0.6)));
+  // low kerbs round the edge, with gaps for the entrances (you can step and drive over them)
+  const kerb = stdMat(0xb8bec7, 0.9), kerbs = [];
+  const gapX = [PARK.aisle - 5, PARK.aisle + 5];                    // entrance from the north-south road, into the aisle
+  const gapZ = [bx0 + bayW * 2, bx0 + bayW * 3.4];                  // entrance from the east-west road
+  const edge = (ax, a0, a1, fixed, gap) => {
+    const segs = gap ? [[a0, gap[0]], [gap[1], a1]] : [[a0, a1]];
+    for (const [s0, s1] of segs) if (s1 - s0 > 0.1) kerbs.push(ax ? M(s1 - s0, 0.5, (s0 + s1) / 2, fixed) : M(0.5, s1 - s0, fixed, (s0 + s1) / 2));
+  };
+  edge(true, x0, x1, z0, gapZ); edge(true, x0, x1, z1);
+  edge(false, z0, z1, x0, gapX); edge(false, z0, z1, x1);
+  const kerbMesh = mergedBoxes(kerbs.map((m) => m.clone().multiply(new THREE.Matrix4().makeScale(1, 12, 1)).premultiply(new THREE.Matrix4().makeTranslation(0, 0.1, 0))), kerb);
+  kerbMesh.receiveShadow = true; scene.add(kerbMesh);
+  // lamp posts (solid: you can crash into them)
+  const pole = stdMat(0x6b7280, 0.4, { metalness: 0.6 }), glow = new THREE.MeshStandardMaterial({ color: 0xfff7d6, emissive: 0xfff1b8, emissiveIntensity: 1.3 });
+  for (const [x, z] of [[x0 + 1.5, z0 + 1.5], [x1 - 1.5, z0 + 1.5], [x0 + 1.5, z1 - 1.5], [x1 - 1.5, z1 - 1.5], [bx0 + bayW * 3, PARK.rows[1].z + bayD / 2]]) {
+    solidBox(0.4, 9, 0.4, x, 4.5, z, pole);
+    const arm = new THREE.Mesh(towerBox, pole); arm.scale.set(2.2, 0.25, 0.3); arm.position.set(x, 9, z); scene.add(arm);
+    const lamp = new THREE.Mesh(towerBox, glow); lamp.scale.set(1.4, 0.3, 0.8); lamp.position.set(x, 8.8, z); scene.add(lamp);
+  }
+  // a ticket machine by the entrance off the north-south road
+  solidBox(1.2, 2.2, 0.9, x0 + 1.5, 1.1, gapX[1] + 2, stdMat(0xfacc15, 0.5));
+  const slot = new THREE.Mesh(towerBox, stdMat(0x111827, 0.4)); slot.scale.set(0.7, 0.5, 0.05); slot.position.set(x0 + 1.5, 1.6, gapX[1] + 2 - 0.47); scene.add(slot);
+  // a blue P sign
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#1d4ed8'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#fff'; g.lineWidth = 8; g.strokeRect(8, 8, 112, 112);
+  g.fillStyle = '#fff'; g.font = 'bold 96px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P', 64, 70);
+  const signTex = new THREE.CanvasTexture(cv); signTex.colorSpace = THREE.SRGBColorSpace;
+  solidBox(0.3, 6, 0.3, x0 + 1.5, 3, gapX[0] - 2, pole);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 2.6), [stdMat(0x1d4ed8, 0.5), stdMat(0x1d4ed8, 0.5), stdMat(0x1d4ed8, 0.5), stdMat(0x1d4ed8, 0.5), stdMat(0x1d4ed8, 0.5), stdMat(0x1d4ed8, 0.5)]);
+  sign.material[0] = sign.material[1] = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.5 });   // both faces (±x) show the P
+  sign.position.set(x0 + 1.5, 6.4, gapX[0] - 2); sign.castShadow = true; scene.add(sign);
+}
+// the cars: big open-top convertibles parked round the roads. Walk up and press E to get in and drive; E to get out.
+const CARS = [];
+const CAR = { w: 5, l: 10, top: 26, reverse: 11, reach: 7 };   // size, top speed forwards / backwards, how close to get in
+function makeCar(x, z, yaw, color) {
+  const g = new THREE.Group();
+  const paint = stdMat(color, 0.3, { metalness: 0.5 }), dark = stdMat(0x1f2937, 0.6), tyre = stdMat(0x111111, 0.9);
+  const seat = stdMat(0x7c2d12, 0.8), chrome = stdMat(0xe5e7eb, 0.2, { metalness: 0.9 });
+  const part = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  const { w, l } = CAR;
+  const solid = [];
+  solid.push(part(new RoundedBoxGeometry(w, 1.4, l, 2, 0.25), paint, 0, 1.15, 0));                       // body
+  solid.push(part(new RoundedBoxGeometry(w - 0.2, 0.5, l * 0.32, 2, 0.2), paint, 0, 2.05, l * 0.32));       // bonnet
+  solid.push(part(new RoundedBoxGeometry(w - 0.2, 0.5, l * 0.22, 2, 0.2), paint, 0, 2.05, -l * 0.38));      // boot
+  part(new THREE.BoxGeometry(w - 0.6, 0.5, l * 0.42), seat, 0, 1.95, -l * 0.04);                            // seats
+  part(new THREE.BoxGeometry(w - 0.6, 1.3, 0.35), seat, 0, 2.6, -l * 0.25);                                 // seat back
+  const screen = part(new THREE.BoxGeometry(w - 0.4, 1.3, 0.12), new THREE.MeshStandardMaterial({ color: 0x9ec5e8, transparent: true, opacity: 0.4, roughness: 0.05 }), 0, 2.85, l * 0.15);
+  screen.rotation.x = -0.35; screen.castShadow = false;                                                       // windscreen
+  part(new THREE.TorusGeometry(0.55, 0.08, 8, 20), dark, 0, 2.7, l * 0.1).rotation.x = -0.6;                 // steering wheel
+  part(new THREE.BoxGeometry(w + 0.1, 0.3, 0.4), chrome, 0, 0.9, l / 2);                                    // bumpers
+  part(new THREE.BoxGeometry(w + 0.1, 0.3, 0.4), chrome, 0, 0.9, -l / 2);
+  const wheel = new THREE.CylinderGeometry(0.95, 0.95, 0.6, 18), wheels = [];
+  for (const [px, pz] of [[-w / 2, l * 0.3], [w / 2, l * 0.3], [-w / 2, -l * 0.3], [w / 2, -l * 0.3]]) {
+    const wg = new THREE.Group(); wg.position.set(px, 0.95, pz); g.add(wg);
+    const m = new THREE.Mesh(wheel, tyre); m.rotation.z = Math.PI / 2; m.castShadow = true; wg.add(m);
+    wheels.push(wg);
+  }
+  for (const px of [-1.4, 1.4]) {
+    part(new THREE.BoxGeometry(0.9, 0.35, 0.08), new THREE.MeshStandardMaterial({ color: 0xfffbe0, emissive: 0xfff4c0, emissiveIntensity: 1 }), px, 1.35, l / 2 + 0.02);   // headlights
+    part(new THREE.BoxGeometry(0.9, 0.3, 0.08), new THREE.MeshStandardMaterial({ color: 0x7f1d1d, emissive: 0xff2020, emissiveIntensity: 0.8 }), px, 1.35, -l / 2 - 0.02);  // tail lights
+  }
+  houseMeshes.push(...solid);                // shots and grabs bump into the bodywork
+  scene.add(g);
+  const body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: physMat });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, 0.85, l / 2)), new CANNON.Vec3(0, 1.15, 0));
+  world.addBody(body);
+  const car = { start: { x, z, yaw }, x, z, yaw, v: 0, steer: 0, spin: 0, mesh: g, wheels, body, driver: null, net: null };
+  CARS.push(car);
+  placeCar(car);
+  return car;
+}
+function placeCar(car) {
+  car.mesh.position.set(car.x, 0, car.z); car.mesh.rotation.y = car.yaw;
+  car.wheels[0].rotation.y = car.wheels[1].rotation.y = car.steer;          // the front wheels steer...
+  for (const wg of car.wheels) wg.children[0].rotation.x = car.spin;        // ...and they all roll
+  car.body.position.set(car.x, 0, car.z); car.body.quaternion.setFromEuler(0, car.yaw, 0);
+  car.body.velocity.set(Math.sin(car.yaw) * car.v, 0, Math.cos(car.yaw) * car.v);   // so it shoves ragdolls properly
+}
+// park most of the cars in the car park bays ([row, bay, colour]), and leave one by the road near the spawn points
+[[0, 0, 0xdc2626], [0, 2, 0x2563eb], [0, 3, 0xf8fafc], [0, 5, 0x16a34a], [1, 1, 0xf59e0b], [1, 4, 0x7c3aed],
+ [1, 5, 0x0ea5e9], [2, 0, 0xe11d48], [2, 2, 0x84cc16], [2, 4, 0x111827]].forEach(([r, i, c]) => makeCar(bayX(i), PARK.rows[r].z, PARK.rows[r].yaw, c));
+makeCar(-1, 17, -Math.PI / 2, 0xf97316);
+const carOf = (p) => CARS.find((c) => c.driver === p) || null;
+// the closest free car you're standing next to
+function nearCar(r) {
+  let best = null, bestD = CAR.reach;
+  for (const c of CARS) {
+    if (c.driver || (c.driverSlot !== undefined && c.driverSlot !== -1)) continue;   // (driverSlot: what a guest hears; -2 is the NPC)
+    const d = Math.hypot(r.x - c.mesh.position.x, r.z - c.mesh.position.z) - CAR.l / 2 + 1;
+    if (d < bestD && r.y < 2) { bestD = d; best = c; }
+  }
+  return best;
+}
+// E: get in (host)
+function getInCar(p) {
+  const c = p.ch.state === 'up' && nearCar(p.ch.root);
+  if (!c) return false;
+  endDrag(p);
+  c.driver = p; p.drive = { th: 0, st: 0, hb: 0 };
+  p.ch.state = 'drive';
+  p.cam.yaw = c.yaw + Math.PI;                // camera behind the car
+  fx.sfx('clang');
+  return true;
+}
+// E again: get out, beside the car
+function getOutOfCar(p) {
+  const c = carOf(p);
+  if (!c) return;
+  c.driver = null;
+  const side = c.yaw + Math.PI / 2;
+  Object.assign(p.ch.root, { x: c.x + Math.sin(side) * (CAR.w / 2 + 2), y: 0, z: c.z + Math.cos(side) * (CAR.w / 2 + 2), yaw: c.yaw });
+  pushOutOfObstacles(p.ch.root);
+  if (p.ch.state === 'drive') p.ch.state = 'up';
+  p.vel.x = p.vel.y = p.vel.z = 0; p.cam.yaw = c.yaw + Math.PI;
+  if (p !== me && p.conn) netSendTo(p, { t: 'hi', slot: p.slot, r: [p.ch.root.x, 0, p.ch.root.z], yaw: p.cam.yaw });
+}
+// keys (or the guest's inputs) → throttle, steering and handbrake for this device's own player
+function localDriveInput() {
+  let th = 0, st = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) th += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) th -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) st += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) st -= 1;
+  if (touchStick.on) { th -= touchStick.y; st += touchStick.x; }
+  return { th: THREE.MathUtils.clamp(th, -1, 1), st: THREE.MathUtils.clamp(st, -1, 1), hb: keys.has('Space') ? 1 : 0 };
+}
+const _cp = { x: 0, y: 0, z: 0 };
+// host: drive the cars, crash into things, and knock over anyone in the way
+function updateCars(dt) {
+  for (const car of CARS) {
+    const p = car.driver;
+    if (p && (!p.ch.active || p.ch.state !== 'drive')) { car.driver = null; }   // left the game, or got knocked out of the seat
+    const inp = car.driver ? (car.driver === me ? localDriveInput() : car.driver.drive || {}) : { th: 0, st: 0, hb: 0 };
+    const th = inp.th || 0, st = THREE.MathUtils.clamp(inp.st || 0, -1, 1);
+    // speed: accelerate, brake, reverse, roll to a stop
+    if (th > 0) car.v += (car.v < 0 ? 40 : 16) * th * dt;
+    else if (th < 0) car.v += (car.v > 0 ? 40 : 10) * th * dt;
+    else car.v -= Math.sign(car.v) * Math.min(Math.abs(car.v), 6 * dt);
+    if (inp.hb) car.v -= Math.sign(car.v) * Math.min(Math.abs(car.v), 45 * dt);
+    car.v = THREE.MathUtils.clamp(car.v, -CAR.reverse, CAR.top);
+    // steering: lots of lock at low speed (so you can turn round in the car park), gentle at speed; D turns right
+    const lock = THREE.MathUtils.lerp(0.6, 0.25, Math.min(1, Math.abs(car.v) / CAR.top));
+    car.steer += (st * lock - car.steer) * Math.min(1, dt * 6);
+    car.yaw -= (car.v / (CAR.l * 0.6)) * Math.tan(car.steer) * dt;
+    car.spin += car.v * dt / 0.95;
+    const fx_ = Math.sin(car.yaw), fz = Math.cos(car.yaw);
+    car.x = clampX(car.x + fx_ * car.v * dt, CAR.l / 2);
+    car.z = clampZ(car.z + fz * car.v * dt, CAR.l / 2);
+    // crashing: the front and back of the car can't go through walls, containers, trees or tower walls
+    for (const end of [CAR.l / 2 - 1.2, 0, -CAR.l / 2 + 1.2]) {
+      Object.assign(_cp, { x: car.x + fx_ * end, y: 0, z: car.z + fz * end });
+      const ox = _cp.x, oz = _cp.z;
+      pushOutOfObstacles(_cp, car);          // (other cars count too)
+      if (tooHigh(_cp.x, _cp.z, 0)) { _cp.x = car.x - fx_ * car.v * dt + fx_ * end; _cp.z = car.z - fz * car.v * dt + fz * end; }   // e.g. the side of the stairs
+      const dx = _cp.x - ox, dz = _cp.z - oz;
+      if (dx || dz) {
+        car.x += dx; car.z += dz;
+        if (Math.abs(car.v) > 6) fx.sfx('clang');
+        car.v *= -0.25;
+      }
+    }
+    placeCar(car);
+    if (car.driver) {                          // the driver sits in the middle seat, ready to be launched out
+      const ch = car.driver.ch, r = ch.root, back = -CAR.l * 0.12;
+      Object.assign(r, { x: car.x + fx_ * back, y: 0.1, z: car.z + fz * back, yaw: car.yaw });
+      ch.amp = 0;
+      ch.applyPose(ch.pose({ legL: -1.45, legR: -1.45, armL: -1.15, armR: -1.15 }));
+      ch.carry.set(fx_ * car.v, 0, fz * car.v);
+    }
+    // standing people in front of a moving car get run over (ragdolls just get shoved by its body)
+    if (Math.abs(car.v) < 2) continue;
+    for (const ch of allChars()) {
+      if ((ch.state !== 'up' && ch.state !== 'getup') || ch.root.y > 3) continue;
+      const dx = ch.root.x - car.x, dz = ch.root.z - car.z;
+      const along = dx * fx_ + dz * fz, side = dx * fz - dz * fx_;
+      // (a bit wider than the 1.2 that keeps walkers out of cars, so standing people get hit instead of shoved along)
+      if (Math.abs(along) > CAR.l / 2 + 1.7 || Math.abs(side) > CAR.w / 2 + 1.7) continue;
+      const k = car.v * 1.3, by = car.driver ? car.driver.ch : null;
+      hitChar(ch, ch.torso, new CANNON.Vec3(fx_ * k * 2, 12, fz * k * 2), ch.torso.position.clone(), 'car', new CANNON.Vec3(fx_ * k, 12 + Math.abs(car.v) * 0.5, fz * k), by);
+      fx.sfx('bonk');
+    }
+  }
+}
+function resetCars() {
+  for (const car of CARS) { Object.assign(car, { x: car.start.x, z: car.start.z, yaw: car.start.yaw, v: 0, steer: 0, driver: null }); placeCar(car); }
+}
+
 // everything that blocks shots, throws, grabs and the NPC's view
 const sceneryMeshes = [...containerMeshes, ...houseMeshes, ...furnitureMeshes];
 
@@ -1212,7 +1493,7 @@ class Character {
   }
   goRagdoll() {
     if (this.state === 'ragdoll') return false;
-    const carry = this.state === 'up' ? this.carry.clone() : new CANNON.Vec3();
+    const carry = this.state === 'up' || this.state === 'drive' ? this.carry.clone() : new CANNON.Vec3();   // (out of a car: at the car's speed)
     this.setKinematic(false);
     for (const n of NAMES) this.parts[n].body.velocity.copy(carry);
     this.state = 'ragdoll'; this.ragdollTime = 0; this.stillTime = 0; this.blend = null;
@@ -1220,8 +1501,8 @@ class Character {
   }
   startGetup(yaw, at) {
     const t = this.torso.position;
-    this.root.x = THREE.MathUtils.clamp(t.x, -ARENA + 2.5, ARENA - 2.5);
-    this.root.z = THREE.MathUtils.clamp(t.z, -ARENA + 2.5, ARENA - 2.5);
+    this.root.x = clampX(t.x, 2.5);
+    this.root.z = clampZ(t.z, 2.5);
     this.root.y = groundAt(this.root.x, this.root.z, t.y);   // whichever floor (or stair) they're lying on
     const inside = containerAt(t);
     if (at) { this.root.x = at.x; this.root.y = at.y; this.root.z = at.z; }        // e.g. stand up inside the bin
@@ -1279,12 +1560,13 @@ class Character {
 
 // NPC keeps the colours from the Blender model; each player gets an outfit
 const npc = new Character({ colors: { skin: 0xcbc922, torso: 0x943639, legs: 0x0066cb }, group: GROUP.NPC, key: 'npc' });
-// spawn: [x, z, cam yaw]; you spawn facing the middle
+// spawn: [x, z, cam yaw]; everyone spawns off the roads, facing the crossroads in the middle
+const facingMiddle = (x, z) => [x, z, Math.atan2(-(AC.x - x), -(AC.z - z))];
 const PLAYER_DEFS = [
-  { key: 'p1', colors: { skin: 0xf2c9a0, torso: 0x2a9d8f, legs: 0x3d405b }, group: GROUP.P1, spawn: [0, 20, 0], tracer: 0xffd34d },
-  { key: 'p2', colors: { skin: 0xe8b98f, torso: 0xe76f51, legs: 0x264653 }, group: GROUP.P2, spawn: [14, -20, Math.PI], tracer: 0xff9f4d },
-  { key: 'p3', colors: { skin: 0xd9a37a, torso: 0x8338ec, legs: 0x2b2d42 }, group: GROUP.P3, spawn: [-10, 4, -Math.PI / 2], tracer: 0xc4b5fd },
-  { key: 'p4', colors: { skin: 0xc68b59, torso: 0xffbe0b, legs: 0x1d3557 }, group: GROUP.P4, spawn: [10, 8, Math.PI / 2], tracer: 0x93c5fd },
+  { key: 'p1', colors: { skin: 0xf2c9a0, torso: 0x2a9d8f, legs: 0x3d405b }, group: GROUP.P1, spawn: facingMiddle(0, 24), tracer: 0xffd34d },
+  { key: 'p2', colors: { skin: 0xe8b98f, torso: 0xe76f51, legs: 0x264653 }, group: GROUP.P2, spawn: facingMiddle(30, PARK.aisle), tracer: 0xff9f4d },
+  { key: 'p3', colors: { skin: 0xd9a37a, torso: 0x8338ec, legs: 0x2b2d42 }, group: GROUP.P3, spawn: facingMiddle(-4, 22), tracer: 0xc4b5fd },
+  { key: 'p4', colors: { skin: 0xc68b59, torso: 0xffbe0b, legs: 0x1d3557 }, group: GROUP.P4, spawn: facingMiddle(30, -4), tracer: 0x93c5fd },
 ];
 function makePlayer({ key, colors, group, spawn, tracer }, i) {
   const joint = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC });
@@ -1466,16 +1748,16 @@ function addFlash(p, size, color = 0xfff2a8) {
   effects.push({ update(dt) { life -= dt; const k = 1 - life / 0.15; m.scale.setScalar(size * (0.6 + k * 1.6)); m.material.opacity = Math.max(0, 1 - k); if (life <= 0) { scene.remove(m); m.material.dispose(); return false; } return true; } });
 }
 const WORDS = {
-  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], fall: ['AAAAAAAAH!', 'WAAAAAH!', 'NOT THE TOWER!'], furn: ['WHO THREW A CHAIR?!', 'MY FURNITURE!', 'OOF!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], vroom: ['VROOM VROOM!', 'BEEP BEEP!', 'OUT OF MY WAY!'], car: ['HIT AND RUN!', 'WATCH THE ROAD!', 'MY LEGS!'], fall: ['AAAAAAAAH!', 'WAAAAAH!', 'NOT THE TOWER!'], furn: ['WHO THREW A CHAIR?!', 'MY FURNITURE!', 'OOF!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
          bin: ['LET ME OUT!', 'IT STINKS IN HERE!', 'NOT THE BIN!'], fridge: ['IT\'S FREEZING!', 'I\'M NOT A SNACK!', 'LET ME OUT!'],
          wardrobe: ['IT\'S DARK IN HERE!', 'NARNIA?!', 'LET ME OUT!'], freezer: ['SO COLD!', 'BRRRR!', 'I\'LL BE A POPSICLE!'],
          bbq: ["IT'S HOT IN HERE!", "I'M NOT A SAUSAGE!", 'TOO SPICY!'], grilled: ['WELL DONE!', 'SIZZLE SIZZLE!', 'MEDIUM RARE!'],
          seen: ['I SAW THAT!', 'NICE TRY!', 'I CAN SEE YOU!'], boo: ['BOO!', 'SURPRISE!', 'GOTCHA!'],
          binned: ['IN THE BIN!', 'TAKE OUT THE TRASH!', 'BYE BYE!'], fridged: ['STAY FRESH!', 'CHILL OUT!', 'BEST BEFORE: NEVER!'],
          closeted: ['GO TO YOUR ROOM!', 'ENJOY NARNIA!', 'STAY IN THERE!'], frozen: ['FROZEN SOLID!', 'STAY COOL!', 'ICE TO MEET YOU!'] },
-  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], fall: ['AAAAAAAAH!', 'WHOOOAAA!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], car: ['OUCH!', 'LOOK BOTH WAYS!'], fall: ['AAAAAAAAH!', 'WHOOOAAA!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
          bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'], bbq: ['HOT HOT HOT!', 'LET ME OUT!'] },
-  friend: { shot: ['OW!', 'HEY!'], fall: ['AAAAAAAAH!', 'NOOOOOO!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  friend: { shot: ['OW!', 'HEY!'], car: ['OUCH!', 'HIT AND RUN!'], fall: ['AAAAAAAAH!', 'NOOOOOO!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
             bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'], bbq: ['OUCH, HOT!', 'NOT THE BARBECUE!'] },
 };
 function bubble(ch, kind) {
@@ -1511,6 +1793,7 @@ const WARN = {
   bbq: "🔥 He's putting you on the barbecue!",
   seen: '👀 He saw you hide! He\'s coming to drag you out!',
   ambush: '😱 BOO! He was hiding in there!',
+  car: "🚗 He's driving at you!",
 };
 function showWarn(kind, who) {
   if (who !== me.key) return;          // only warn the player he's going after
@@ -1742,7 +2025,8 @@ function leaveHiding(p) {
   setOpen(c, true);
   p.ch.stillTime = 5;                                  // stand up and hop straight out
 }
-function useContainer(p) {      // E key
+function useContainer(p) {      // E key: cars first (get in or out), then containers
+  if (carOf(p)) { getOutOfCar(p); return; }
   if (p.hiding) { leaveHiding(p); return; }
   const c = trappedIn(p.ch);
   if (c) {                       // stuck inside a closed one: push the lid / door
@@ -1752,6 +2036,7 @@ function useContainer(p) {      // E key
     if (c.pushes >= 6) { setOpen(c, true); fx.bubble(p.ch, 'free'); }
     return;
   }
+  if (getInCar(p)) return;
   const n = p.ch.state === 'up' && nearContainer(p.ch.root);
   if (n) setOpen(n, !n.open);
 }
@@ -1818,8 +2103,8 @@ function localMove(p, dt) {          // WASD / jump for this device's own player
   const pace = touchStick.on && !keys.size ? Math.min(1, stick / 0.6) : 1;   // gentle push on the stick walks slowly
   p.vel.x = mx * speed * pace; p.vel.z = mz * speed * pace;
   const px = r.x, pz = r.z;
-  r.x = THREE.MathUtils.clamp(r.x + p.vel.x * dt, -ARENA + 2.2, ARENA - 2.2);
-  r.z = THREE.MathUtils.clamp(r.z + p.vel.z * dt, -ARENA + 2.2, ARENA - 2.2);
+  r.x = clampX(r.x + p.vel.x * dt, 2.2);
+  r.z = clampZ(r.z + p.vel.z * dt, 2.2);
   pushOutOfObstacles(r);
   if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }       // e.g. the side of the stairs
   let floor = groundAt(r.x, r.z, r.y);
@@ -1851,6 +2136,7 @@ function jumpOutStep(ch, c, from, t) {
 }
 function hostDrivePlayer(p, dt) {
   const ch = p.ch;
+  if (ch.state === 'drive') return;     // the car moves you (see updateCars)
   if (ch.state === 'jump') {          // leaping out of a container (you watch it in third person)
     p.jump.t += dt;
     if (jumpOutStep(ch, p.jump.c, p.jump.from, p.jump.t)) {
@@ -1894,7 +2180,7 @@ function pickWander() {
   for (let i = 0; i < 20; i++) {
     const up = Math.random() < 0.2;    // now and then he wanders upstairs
     if (up) npcGoal.set(THREE.MathUtils.lerp(HOUSE.x0, HOUSE.x1, Math.random()), HOUSE.up, THREE.MathUtils.lerp(HOUSE.z0, HOUSE.z1, Math.random()));
-    else npcGoal.set((Math.random() * 2 - 1) * WANDER, 0, (Math.random() * 2 - 1) * WANDER);
+    else npcGoal.set(AC.x + (Math.random() * 2 - 1) * WANDER, 0, AC.z + (Math.random() * 2 - 1) * WANDER);
     if (walkable(npcGoal.x, npcGoal.z, npcGoal.y) && Math.hypot(npcGoal.x - npc.root.x, npcGoal.z - npc.root.z) > 6) break;
   }
 }
@@ -1906,23 +2192,75 @@ const reachDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) + Math.abs(a.y - b.
 function endAttack() { brain.mode = 'wander'; brain.timer = 2.2 + Math.random() * 2.5; brain.target = null; brain.ambush = null; pickWander(); }
 const freeContainers = () => CONTAINERS.filter((c) => !occupied(c));
 function chooseAttack() {
-  const cands = players().filter((p) => p.ch.state === 'up' && p.grace <= 0);
+  // people on foot, or driving a car (he can shoot or lob a plant at drivers, which knocks them out of the seat)
+  const cands = players().filter((p) => (p.ch.state === 'up' || p.ch.state === 'drive') && p.grace <= 0);
   if (!cands.length) return;
   const target = cands[Math.floor(Math.random() * cands.length)];
+  const driving = target.ch.state === 'drive';
   const P = posOf(target), dist = Math.hypot(P.x - npc.root.x, P.z - npc.root.z);
   const opts = [];
   if (canSee(target)) {            // only shoot or throw at people he can actually see (not through floors and walls)
     if (dist < 34) opts.push(['shoot', 4]);
     if (dist > 5 && dist < 28) opts.push(['throw', 3.5]);
   }
-  opts.push(['chase', 2.5]);
-  if (freeContainers().length) opts.push(['ambush', 1.5]);
+  if (!driving) {
+    opts.push(['chase', 2.5]);
+    if (freeContainers().length) opts.push(['ambush', 1.5]);
+    if (npcCarNear() && roadTarget(target)) opts.push(['drive', 2]);   // go and get a car to run them over with
+  }
+  if (!opts.length) return;
   let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
   let pick = opts[0][0];
   for (const [m, w] of opts) { if ((r -= w) <= 0) { pick = m; break; } }
   if (pick === 'ambush') { startAmbush(); return; }
+  if (pick === 'drive') { Object.assign(brain, { mode: 'toCar', t: 0, target, car: npcCarNear() }); return; }
   Object.assign(brain, { mode: pick, t: 0, shots: 0, thrown: false, target });
   fx.warn(pick, target.key);
+}
+// the NPC driving: he sits in the seat like a player, and this steers and works the pedals for him
+const NPC_DRIVER = { ch: npc, key: 'npc', slot: -2, drive: { th: 0, st: 0, hb: 0 }, drag: null, conn: null, cam: { yaw: 0, pitch: 0 }, vel: { x: 0, y: 0, z: 0 } };
+// someone he could drive at: standing out in the open (not indoors or up a tower)
+const roadTarget = (p) => p && p.ch.active && p.ch.state === 'up' && p.ch.root.y < 1 && !inHouse(p.ch.root, 1) && !towerAt(p.ch.root);
+function npcCarNear() {             // a free car not too far away
+  let best = null, bestD = 45;
+  for (const c of CARS) {
+    if (c.driver) continue;
+    const d = Math.hypot(c.x - npc.root.x, c.z - npc.root.z);
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+function npcDrive(dt) {
+  const car = carOf(NPC_DRIVER);
+  if (!car) { npc.state = 'up'; endAttack(); return; }
+  brain.t += dt;
+  const inp = NPC_DRIVER.drive;
+  if (brain.t > 22) {               // had enough: brake, then get out
+    Object.assign(inp, { th: 0, st: 0, hb: 1 });
+    if (Math.abs(car.v) < 1) { getOutOfCar(NPC_DRIVER); brain.panic = 0; endAttack(); }
+    return;
+  }
+  // who to run over: his target if they're still out in the open, else whoever's nearest, else just cruise the roads
+  if (!roadTarget(brain.target)) {
+    brain.target = players().filter(roadTarget).sort((a, b) => Math.hypot(a.ch.root.x - car.x, a.ch.root.z - car.z) - Math.hypot(b.ch.root.x - car.x, b.ch.root.z - car.z))[0] || null;
+    if (brain.target) fx.warn('car', brain.target.key);
+  }
+  let dest = brain.target ? brain.target.ch.root : brain.roam;
+  if (!dest || (!brain.target && Math.hypot(dest.x - car.x, dest.z - car.z) < 10)) {
+    const a = Math.random() * Math.PI * 2;
+    dest = brain.roam = { x: AC.x + Math.cos(a) * ROAD.R, z: AC.z + Math.sin(a) * ROAD.R };
+  }
+  // in the car park: out along the aisle and through the entrance first, instead of ploughing through the parked cars
+  const inPark = car.x > PARK.x0 && car.x < PARK.x1 && car.z > PARK.z0 && car.z < PARK.z1;
+  const destInPark = dest.x > PARK.x0 && dest.x < PARK.x1 && dest.z > PARK.z0 && dest.z < PARK.z1;
+  if (inPark && !destInPark) dest = Math.abs(car.z - PARK.aisle) > 2.5 ? { x: car.x - 6, z: PARK.aisle } : { x: PARK.x0 - 7, z: PARK.aisle };
+  const diff = Math.atan2(Math.sin(Math.atan2(dest.x - car.x, dest.z - car.z) - car.yaw), Math.cos(Math.atan2(dest.x - car.x, dest.z - car.z) - car.yaw));
+  let th = Math.abs(diff) > 1.6 ? 0.6 : 1, st = THREE.MathUtils.clamp(-diff * 2.2, -1, 1);
+  // stuck against something: back up for a moment, steering the other way
+  if (brain.reverse > 0) { brain.reverse -= dt; th = -1; st = -st; }
+  else if (Math.abs(car.v) < 1.5 && brain.t > 1) { brain.stuck = (brain.stuck || 0) + dt; if (brain.stuck > 1.2) { brain.reverse = 1.3; brain.stuck = 0; } }
+  else brain.stuck = 0;
+  Object.assign(inp, { th, st, hb: 0 });
 }
 // is there a clear line from the NPC's eyes to this player (walls, floors and containers block it)?
 const wallMeshes = [...houseMeshes, ...containerMeshes];
@@ -2004,9 +2342,9 @@ function startDrag(victim, avoid) {
   c.collideConnected = false;
   world.addConstraint(c);
   victim.ch.heldBy = npc;
-  const away = new THREE.Vector3(-npc.root.x, 0, -npc.root.z);
+  const away = new THREE.Vector3(AC.x - npc.root.x, 0, AC.z - npc.root.z);   // off across the middle
   if (away.length() < 4) away.set(Math.random() - 0.5, 0, Math.random() - 0.5);
-  away.setLength(WANDER);
+  away.setLength(28).add(new THREE.Vector3(AC.x, 0, AC.z));
   // half the time he hauls you off to one of the containers instead
   const free = CONTAINERS.filter((k) => k !== avoid && !allChars().some((ch) => ch !== victim.ch && inPos(k, ch.torso.position)));
   const into = free.length && Math.random() < 0.5 ? free[Math.floor(Math.random() * free.length)] : null;
@@ -2048,8 +2386,8 @@ function npcMove(dt, goal, speed, faceYaw, over) {
     const g = routeGoal(r, goal);          // through a doorway / round the house if needed
     turn(Math.atan2(g.x - r.x, g.z - r.z), 6);
     const px = r.x, pz = r.z;
-    r.x = THREE.MathUtils.clamp(r.x + Math.sin(r.yaw) * speed * dt, -ARENA + 2.5, ARENA - 2.5);
-    r.z = THREE.MathUtils.clamp(r.z + Math.cos(r.yaw) * speed * dt, -ARENA + 2.5, ARENA - 2.5);
+    r.x = clampX(r.x + Math.sin(r.yaw) * speed * dt, 2.5);
+    r.z = clampZ(r.z + Math.cos(r.yaw) * speed * dt, 2.5);
     pushOutOfObstacles(r);
     if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }
     const floorY = groundAt(r.x, r.z, r.y);
@@ -2077,6 +2415,7 @@ function updateNpc(dt) {
     npc.ragdollTime = 0; npc.stillTime = 0;
     return;
   }
+  if (npc.state === 'drive') { npcDrive(dt); return; }   // behind the wheel (the car moves him)
   if (npc.state === 'getup') {
     if (npc.updateGetup(dt)) {
       if (brain.jumpOut) {            // standing in a container: now leap out over the front
@@ -2133,6 +2472,19 @@ function updateNpc(dt) {
   const tgtUp = tgt && tgt.ch.state === 'up';
   let goal = null, speed = 0, face = null, over = null;
   switch (brain.mode) {
+    case 'toCar': {     // walking over to a car to drive at someone
+      const c = brain.car;
+      brain.t += dt;
+      if (!c || c.driver || brain.t > 14) { endAttack(); break; }
+      const side = c.yaw + Math.PI / 2;
+      goal = new THREE.Vector3(c.x + Math.sin(side) * (CAR.w / 2 + 2.2), 0, c.z + Math.cos(side) * (CAR.w / 2 + 2.2)); speed = 9.5;
+      if (Math.hypot(npc.root.x - c.x, npc.root.z - c.z) - CAR.l / 2 + 1 < CAR.reach - 1 && getInCar(NPC_DRIVER)) {
+        Object.assign(brain, { mode: 'driving', t: 0, stuck: 0, reverse: 0, roam: null });
+        fx.bubble(npc, 'vroom');
+        if (brain.target) fx.warn('car', brain.target.key);
+      }
+      break;
+    }
     case 'toHide': {    // heading to a container to hide in
       const c = brain.hideIn;
       goal = c.front; speed = 9; brain.t += dt;
@@ -2180,7 +2532,7 @@ function updateNpc(dt) {
     case 'shoot':
       face = faceYaw; over = { armR: -1.55 }; brain.t += dt;
       if (brain.shots < 3 && brain.t > 0.6 + brain.shots * 0.25) { if (canSee(tgt)) npcShoot(); brain.shots++; }
-      if (brain.t > 1.5 || (!tgtUp && brain.shots > 0)) endAttack();
+      if (brain.t > 1.5 || (!tgtUp && tgt.ch.state !== 'drive' && brain.shots > 0)) endAttack();
       break;
     case 'throw':
       face = faceYaw; brain.t += dt;
@@ -2205,7 +2557,7 @@ function updateNpc(dt) {
     }
   }
   if (brain.mode === 'lurk') return;   // just climbed in
-  if (['wander', 'chase', 'toHide', 'evict'].includes(brain.mode) || (brain.mode === 'dragging' && brain.drag)) npcMove(dt, goal, speed, null, over);
+  if (['wander', 'chase', 'toHide', 'evict', 'toCar'].includes(brain.mode) || (brain.mode === 'dragging' && brain.drag)) npcMove(dt, goal, speed, null, over);
   else npcMove(dt, null, 0, face, over);
 }
 
@@ -2221,11 +2573,19 @@ function updateCamera(dt) {
     const bob = Math.sin(me.ch.phase * 2) * 0.06 * me.ch.amp;
     camera.position.set(r.x, r.y + 4.55 + bob, r.z);
     camera.rotation.set(cam.pitch, cam.yaw, 0);
-  } else {   // third person: orbit around your ragdoll
-    camTarget.copy(me.ch.parts.torso.mesh.position);
+  } else {   // third person: orbit around your ragdoll, or follow your car
+    const myCar = me.ch.state === 'drive' ? (net.role === 'client' ? CARS.find((c) => c.driverSlot === me.slot) : carOf(me)) : null;
+    if (myCar) {
+      camTarget.copy(myCar.mesh.position).add(new THREE.Vector3(0, 3.5, 0));
+      if (performance.now() - lastLookAt > 1200) {   // swing round behind the car
+        const want = myCar.mesh.rotation.y + Math.PI;
+        cam.yaw += Math.atan2(Math.sin(want - cam.yaw), Math.cos(want - cam.yaw)) * Math.min(1, dt * 3);
+        cam.pitch += (-0.28 - cam.pitch) * Math.min(1, dt * 2);
+      }
+    } else camTarget.copy(me.ch.parts.torso.mesh.position);
     const cp = Math.cos(cam.pitch);
     const f = new THREE.Vector3(-Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), -Math.cos(cam.yaw) * cp);
-    camWant.copy(camTarget).addScaledVector(f, -tpDist).add(new THREE.Vector3(0, 1.5, 0));
+    camWant.copy(camTarget).addScaledVector(f, me.ch.state === 'drive' ? -Math.max(tpDist, 18) : -tpDist).add(new THREE.Vector3(0, 1.5, 0));
     camWant.y = Math.max(camWant.y, 0.6);
     camera.position.lerp(camWant, 1 - Math.exp(-dt * 8));
     camera.lookAt(camTarget);
@@ -2427,12 +2787,13 @@ function onHostData(p, m) {
   const v3 = (a) => new THREE.Vector3().fromArray(a);
   switch (m.t) {
     case 'in':
+      if (Array.isArray(m.dv)) p.drive = { th: +m.dv[0] || 0, st: +m.dv[1] || 0, hb: m.dv[2] ? 1 : 0 };   // driving a car
       p.cam.yaw = m.yaw; p.cam.pitch = m.pitch;
       p.ray.o.fromArray(m.o); p.ray.d.fromArray(m.d).normalize();
       if (p.ch.state === 'up') {
-        p.ch.root.x = THREE.MathUtils.clamp(m.r[0], -ARENA + 2.2, ARENA - 2.2);
+        p.ch.root.x = clampX(m.r[0], 2.2);
         p.ch.root.y = Math.max(0, m.r[1]);
-        p.ch.root.z = THREE.MathUtils.clamp(m.r[2], -ARENA + 2.2, ARENA - 2.2);
+        p.ch.root.z = clampZ(m.r[2], 2.2);
         p.ch.phase = m.ph; p.ch.amp = m.amp;
         p.vel.x = m.v[0]; p.vel.y = m.v[1]; p.vel.z = m.v[2];
       }
@@ -2460,6 +2821,7 @@ function snapshot() {
   return { t: 's', c: chars, p: pl, sc: SCORE_KEYS.map((k) => scores[k]),
            lids: CONTAINERS.map((c) => [c.open ? 1 : 0, r3(c.angle)]), hd: PLAYERS.map((p) => CONTAINERS.indexOf(p.hiding)),
            ai: settings.npcAI ? 1 : 0, ev: outbox.splice(0), dr: doorLeaves.map((l) => r3(l.angle)),
+           cars: CARS.map((c) => [r3(c.x), r3(c.z), r3(c.yaw), c.driver ? c.driver.slot : -1, r3(c.steer)]),
            fu: furnitureUpdates() };
 }
 // only the furniture that has moved since we last sent it (and everything now and then, for anyone who just joined)
@@ -2523,6 +2885,12 @@ function onClientData(m) {
   if (Array.isArray(m.lids)) m.lids.forEach((a, i) => { const c = CONTAINERS[i]; if (c && Array.isArray(a)) { c.open = !!a[0]; c.angle = a[1]; placeDoor(c); } });
   if (Array.isArray(m.hd)) PLAYERS.forEach((p, i) => { p.hiding = CONTAINERS[m.hd[i]] || null; });
   if (settings.npcAI !== !!m.ai) { settings.npcAI = !!m.ai; updateNpcBtn(); }
+  if (Array.isArray(m.cars)) m.cars.forEach((a, i) => {
+    const c = CARS[i];
+    if (!c) return;
+    if (!c.net) { c.net = { p: new THREE.Vector3(a[0], 0, a[1]), yaw: a[2] }; c.mesh.position.copy(c.net.p); c.mesh.rotation.y = a[2]; }
+    c.net.p.set(a[0], 0, a[1]); c.net.yaw = a[2]; c.driverSlot = a[3]; c.wheels[0].rotation.y = c.wheels[1].rotation.y = a[4] || 0;
+  });
   if (Array.isArray(m.dr)) m.dr.forEach((a, i) => { const l = doorLeaves[i]; if (l && l.angle !== a) { l.angle = a; placeLeaf(l); } });
   if (Array.isArray(m.fu)) for (const a of m.fu) {        // [index, x, y, z, qx, qy, qz, qw] for each piece that moved
     const f = Array.isArray(a) && FURNITURE[a[0]];
@@ -2578,6 +2946,10 @@ function clientInterpolate(dt) {
   }
   for (const [, cp] of clientPlants) { cp.mesh.position.lerp(cp.p, k); cp.mesh.quaternion.slerp(cp.q, k); }
   for (const f of FURNITURE) if (f.net) { f.mesh.position.lerp(f.net.p, k); f.mesh.quaternion.slerp(f.net.q, k); }
+  for (const c of CARS) if (c.net) {
+    c.mesh.position.lerp(c.net.p, k);
+    c.mesh.rotation.y += Math.atan2(Math.sin(c.net.yaw - c.mesh.rotation.y), Math.cos(c.net.yaw - c.mesh.rotation.y)) * k;
+  }
 }
 
 /* ================= Input ================= */
@@ -2589,6 +2961,7 @@ function updateHint() {
   document.getElementById('hint').textContent = me.ch.state === 'up'
     ? `${HINTS[tool]} · ${move} · ${lookTxt}`
     : me.ch.state === 'jump' ? 'Jumping out!'
+    : me.ch.state === 'drive' ? 'Driving · W/S accelerate / brake / reverse · A/D steer · Space handbrake · move the mouse to look round · E to get out'
     : me.hiding ? `Hiding in the ${me.hiding.name} · Move the mouse to look around`
     : 'You got ragdolled! Move the mouse to look around while you get back up…';
 }
@@ -2647,10 +3020,12 @@ document.addEventListener('pointerlockchange', () => {
 });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); tpDist = THREE.MathUtils.clamp(tpDist + Math.sign(e.deltaY) * 1.5, 5, 24); }, { passive: false });
+let lastLookAt = 0;                 // when you last moved the camera yourself (the car camera waits a moment before swinging back)
 function look(dx, dy, s) {
   s *= lookScale();
   cam.yaw -= dx * s;
   cam.pitch = THREE.MathUtils.clamp(cam.pitch - dy * s, -1.45, 1.45);
+  if (dx || dy) lastLookAt = performance.now();
 }
 // use the current tool (left click, or the fire button on touch)
 function useTool() {
@@ -2779,7 +3154,12 @@ function updateContainerPrompt() {
   let key = '', html = '';
   const stuck = me.ch.state === 'ragdoll' && CONTAINERS.find((c) => !c.open && inPos(c, me.ch.parts.torso.mesh.position));
   const near = me.ch.state === 'up' && nearContainer(me.ch.root);
-  if (me.hiding) {
+  const car = me.ch.state === 'up' && nearCar(me.ch.root);
+  if (me.ch.state === 'drive') {
+    key = 'driving'; html = 'Driving 🚗 Press <kbd>E</kbd> to get out';
+  } else if (car && !me.hiding) {                 // (E gets you into a car before it opens a container)
+    key = 'car'; html = 'Press <kbd>E</kbd> to drive the car 🚗';
+  } else if (me.hiding) {
     key = 'hiding' + me.hiding.id; html = `Hiding in the ${me.hiding.name} 🤫 Press <kbd>E</kbd> or <kbd>F</kbd> to come out`;
   } else if (stuck) {
     key = 'stuck' + stuck.id; html = `You're stuck in the ${stuck.name}! Mash <kbd>E</kbd> to push the ${{ lid: 'lid', door: 'door', double: 'doors' }[stuck.kind]} open`;
@@ -2832,6 +3212,7 @@ function reset() {
   for (const c of CONTAINERS) { Object.assign(c, { open: false, angle: LID_CLOSED, pushes: 0 }); c.trap.clear(); placeDoor(c); }
   for (const f of FURNITURE) { f.heldBy = null; placeFurniture(f); }
   for (const l of doorLeaves) { l.angle = 0; placeLeaf(l); }
+  resetCars();
   for (const k of SCORE_KEYS) scores[k] = 0;
   pickWander();
   for (const p of players()) spawnPlayer(p);
@@ -2848,6 +3229,7 @@ function hostFrame(dt, now) {
   const ray = aimRay(); me.ray.o.copy(ray.origin); me.ray.d.copy(ray.direction);
   updateContainers(dt);
   updateHouseDoors(dt);
+  updateCars(dt);
   for (const p of players()) hostDrivePlayer(p, dt);
   updateNpc(dt);
   for (const p of players()) updateDrag(p);
@@ -2879,7 +3261,8 @@ function clientFrame(dt, now) {
     net.lastSend = now;
     const ray = aimRay(), r = me.ch.root;
     netSend({ t: 'in', r: [r3(r.x), r3(r.y), r3(r.z)], yaw: r3(cam.yaw), pitch: r3(cam.pitch), ph: r3(me.ch.phase), amp: r3(me.ch.amp),
-              v: [r3(me.vel.x), r3(me.vel.y), r3(me.vel.z)], o: ray.origin.toArray().map(r3), d: ray.direction.toArray().map(r3) });
+              v: [r3(me.vel.x), r3(me.vel.y), r3(me.vel.z)], o: ray.origin.toArray().map(r3), d: ray.direction.toArray().map(r3),
+              dv: me.ch.state === 'drive' ? Object.values(localDriveInput()).map(r3) : undefined });
   }
   clientInterpolate(dt);
 }

@@ -30,6 +30,7 @@ Play solo against the NPC, or invite up to three friends for a five-way free-for
 | Sniper | **4** (hold **right-click** to use the scope) |
 | Use tool | **Left-click** (hold for auto-fire with the blaster) |
 | Charge a throw (while grabbing) | Hold **right-click**, release to throw |
+| Get in / out of a car | **E** (next to it) |
 | Open / close a container | **E** (when standing next to it) |
 | Hide inside an open container | **F** (press **E** or **F** again to come out) |
 | NPC on / ragdoll dummy | **N** (or the 🤖 NPC button) |
@@ -147,6 +148,29 @@ Two really tall buildings both have a spiral staircase round an open shaft:
 
 ---
 
+## Roads and cars 🚗
+
+The arena is now **140 × 140**. A two-lane **ring road** loops round all the buildings, and two roads cross at a **junction in the middle**, with zebra crossings and stop lines.
+
+**Eleven big open-top cars:** ten are parked in the **car park** (the square south-east of the junction), and one waits by the road near where you spawn. The car park has three rows of bays, an aisle with entrances off both cross roads, kerbs, lamp posts, a ticket machine and a P sign.
+
+| Action | Key |
+|---|---|
+| Get in / get out | **E** (next to a car) |
+| Accelerate / brake / reverse | **W** / **S** |
+| Steer | **A** / **D** |
+| Handbrake | **Space** |
+| Look round | Move the mouse (the camera swings back behind the car after a moment) |
+
+- **Run people over** and they go flying as a ragdoll. It counts as a hit for the driver.
+- **Crashing:** cars stop when they hit walls, trees, containers, other cars and the towers.
+- **Getting shot while driving** (by a friend or the NPC) throws you out of the seat as a ragdoll, at the car's speed. The NPC will happily shoot or lob plants at you while you drive.
+- **Touch:** press **E**, then use the joystick to steer and drive.
+- **Online:** friends can drive too.
+- **The NPC drives as well.** Sometimes he walks to a free car, gets in ("VROOM VROOM!") and chases whoever is out in the open, trying to run them over ("🚗 He's driving at you!"). He drives out of the car park properly, backs up when he gets stuck, and gets out after about 20 seconds. Shoot him to knock him out of the seat.
+
+---
+
 ## Containers 🗑️ 🧊 🚪
 
 Six containers (the bin outside, the barbecue in the garden, the fridge and freezer downstairs, and two wardrobes upstairs) all work the same way:
@@ -206,7 +230,8 @@ These constants near the top of the `<script>` in `index.html` are easy to chang
 | `HOLD_MAX` | `4.5` | How far in front of you a grabbed person is held |
 | `CHARGE_TIME` | `1.5` | Seconds of right-click needed for a full-power throw |
 | `GRAVITY` | `30` | World gravity |
-| `ARENA` | `44` | Half-width of the arena |
+| `ARENA` / `AC` | `70`, centre `(10, 8)` | Half-width of the arena and where its middle (the crossroads) is |
+| `CAR` | `{ w: 5, l: 10, top: 26, … }` | Car size, top speed and how close you need to be to get in |
 | `CONTAINERS` | bin, fridge, 2 wardrobes, freezer, barbecue | Position, size, rotation, floor and look of each container |
 | `HOUSE` / `STAIRS` | corner house, 9-unit floors | House size and where the stairs run |
 | `TOWERS` | stone tower (60 tall), skyscraper (120 tall) | Position, size, height and how steep each spiral is |
