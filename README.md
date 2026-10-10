@@ -37,6 +37,23 @@ Play solo against the NPC, or invite up to three friends for a five-way free-for
 
 ---
 
+### Touch controls 📱
+
+On a phone or tablet, the touch controls appear as soon as you touch the screen:
+
+| Control | What it does |
+|---|---|
+| **Joystick** (bottom-left) | Walk. Push it all the way to sprint. |
+| **Drag anywhere else** | Look around |
+| **Big button** (🔫 / 🪴 / ✋) | Use your current tool (hold for auto-fire or to keep holding someone) |
+| **⤒** | Jump |
+| **E** / **F** | Open or close containers / hide |
+| **💪** | Appears while you're holding someone: hold it to charge a throw, let go to throw |
+
+Pick tools with the buttons along the top. You aim with the crosshair in the middle of the screen.
+
+---
+
 ## Tools
 
 ### 🔫 Blaster
@@ -84,14 +101,39 @@ Press **N** (or the **🤖 NPC** button) to switch him to a **ragdoll dummy**: h
 
 ---
 
+## The house 🏠
+
+A two-storey house stands in the back-left of the arena, with a garden behind it.
+
+- **Ground floor:** kitchen (fridge and chest freezer), living room (sofa, coffee table, TV) and a dining table with chairs.
+- **Doors:** there are front, side and back doors. Walk into a door to push it open (it swings away from you), and it swings shut again once nobody is touching it. You can also throw people through the open windows.
+- **Upstairs:** climb the stairs along the right-hand wall. Up there are a bedroom (bed, nightstand and **two wardrobes**), a desk, a bookshelf and a second sofa. The stairwell has a railing, but you can still fall down it.
+- The **bin** stands outside, next to the house's right-hand wall.
+- **The garden** (out the back door, or round the side) has grass, flower beds, trees, a picnic table, garden gnomes and a **barbecue** you can shove people into.
+- The roof disappears while you're indoors so you can see what's going on.
+
+### Furniture 🛋️
+
+Every piece of furniture is a physics object:
+
+- **Walk into it** to push it around.
+- **Grab it** (✋ tool), carry it and drop it. Heavy pieces like the bed and sofa are slower to throw.
+- **Throw it at someone** (hold right-click to charge) to knock them into a ragdoll. It counts as a hit.
+- **Shoot it** to send it skidding. For a couple of seconds after being shot it knocks over anyone it hits too.
+
+**R** puts all the furniture back where it started.
+
+---
+
 ## Containers 🗑️ 🧊 🚪
 
-Four containers sit around the arena, and they all work the same way:
+Six containers (the bin outside, the barbecue in the garden, the fridge and freezer downstairs, and two wardrobes upstairs) all work the same way:
 
 - 🗑️ **Bin**: green wheelie bin with a lid
 - 🧊 **Fridge**: tall, with a front door
-- 🚪 **Wardrobe**: tall, with double doors that swing apart
+- 🚪 **Wardrobes** (×2, upstairs): tall, with double doors that swing apart
 - ❄️ **Chest freezer**: long and low, with a lid
+- 🔥 **Barbecue** (in the garden): a grill with glowing coals and a lid
 
 - They all start **closed**. Press **E** next to one to open it.
 - Throw or drop people in, then press **E** next to it to close it.
@@ -123,7 +165,7 @@ Four containers sit around the arena, and they all work the same way:
 - Players find each other through PeerJS's free public signalling server. After that, the game connects directly device-to-device, which works best on the **same Wi-Fi**.
 - If PeerJS's server is unreachable, joining fails, but solo play still works.
 
-> Movement needs a keyboard, so phones can watch and tap to shoot but can't walk.
+> On phones and tablets, touch controls appear as soon as you touch the screen (see **Touch controls** above).
 
 ---
 
@@ -137,8 +179,9 @@ These constants near the top of the `<script>` in `index.html` are easy to chang
 | `HOLD_MAX` | `4.5` | How far in front of you a grabbed person is held |
 | `CHARGE_TIME` | `1.5` | Seconds of right-click needed for a full-power throw |
 | `GRAVITY` | `30` | World gravity |
-| `ARENA` | `32` | Half-width of the arena |
-| `CONTAINERS` | bin, fridge, wardrobe, freezer | Position, size, rotation and look of each container |
+| `ARENA` | `44` | Half-width of the arena |
+| `CONTAINERS` | bin, fridge, 2 wardrobes, freezer, barbecue | Position, size, rotation, floor and look of each container |
+| `HOUSE` / `STAIRS` | corner house, 9-unit floors | House size and where the stairs run |
 
 ---
 

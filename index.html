@@ -41,6 +41,25 @@
   #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
   body.locked.fp #crosshair { display: block; }
   body.locked canvas { cursor: none; }
+  /* touch controls: shown once you touch the screen */
+  #touch { display: none; }
+  body.touch #touch { display: block; }
+  body.touch.fp #crosshair { display: block; }
+  body.touch #hint { display: none; }
+  body.touch #prompt { bottom: 190px; white-space: normal; text-align: center; max-width: calc(100% - 48px); }
+  body.touch #score { top: 64px; bottom: auto; right: 16px; transform: none; }
+  #stick { position: fixed; left: 28px; bottom: 28px; width: 140px; height: 140px; border-radius: 50%; touch-action: none;
+           background: rgba(17,24,39,.22); border: 2px solid rgba(255,255,255,.55); }
+  #knob { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px; border-radius: 50%;
+          background: rgba(255,255,255,.8); box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }
+  .tb { position: fixed; width: 60px; height: 60px; padding: 0; border-radius: 50%; font: 800 20px system-ui, sans-serif;
+        background: rgba(17,24,39,.6); touch-action: none; -webkit-tap-highlight-color: transparent; }
+  .tb.on { background: #f59e0b; color: #1f2937; }
+  #tFire { right: 24px; bottom: 28px; width: 88px; height: 88px; font-size: 32px; }
+  #tJump { right: 128px; bottom: 24px; }
+  #tE { right: 24px; bottom: 132px; }
+  #tF { right: 98px; bottom: 112px; }
+  #tThrow { right: 172px; bottom: 96px; }
   #mp { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
   #mp.open { display: flex; }
   #mp .card { background: #fff; color: #111827; border-radius: 16px; padding: 20px; width: min(420px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.3); }
@@ -94,6 +113,14 @@
 <div id="prompt"></div>
 <div id="crosshair"></div>
 <div id="cdbar"><i></i></div>
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <button id="tFire" class="tb big">🔫</button>
+  <button id="tJump" class="tb">⤒</button>
+  <button id="tE" class="tb">E</button>
+  <button id="tF" class="tb">F</button>
+  <button id="tThrow" class="tb" hidden>💪</button>
+</div>
 <div id="charge"><span>THROW POWER</span><div><i></i></div></div>
 <div id="mp">
   <div class="card">
@@ -112,7 +139,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import * as CANNON from 'cannon-es';
 
 /* ================= Constants & shared state ================= */
-const GRAVITY = 30, ARENA = 32, WANDER = 25;
+const GRAVITY = 30, ARENA = 44, WANDER = 36;
 const GROUP = { WORLD: 1, WALL: 2, NPC: 4, P1: 8, P2: 16, P3: 32, P4: 64 };
 const ALL_CHARS = GROUP.NPC | GROUP.P1 | GROUP.P2 | GROUP.P3 | GROUP.P4;
 const MAX_PLAYERS = 4;
@@ -152,24 +179,24 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe3f3);
-scene.fog = new THREE.Fog(0xcfe3f3, 70, 150);
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 250);
+scene.fog = new THREE.Fog(0xcfe3f3, 90, 190);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 300);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f70, 1.1));
 const sun = new THREE.DirectionalLight(0xffffff, 1.7);
-sun.position.set(14, 34, 17);
+sun.position.set(18, 44, 22);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 1, far: 120 });
+Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 140 });
 scene.add(sun);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0xe9eef2, roughness: 1 }));
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
-const grid = new THREE.GridHelper(ARENA * 2, 32, 0xb3c0cb, 0xd2dae1);
+const grid = new THREE.GridHelper(ARENA * 2, 44, 0xb3c0cb, 0xd2dae1);
 grid.position.y = 0.01;
 scene.add(grid);
 const borderMat = new THREE.MeshStandardMaterial({ color: 0xa7b4c0, roughness: 0.9 });
@@ -217,10 +244,10 @@ function addBox(c, parent, sx, sy, sz, x, y, z, mat, solid) {
   return m;
 }
 function makeContainer(cfg) {
-  const c = { ...cfg, open: false, angle: LID_CLOSED, pushes: 0, trap: new Map(), meshes: [], cos: Math.cos(cfg.ry), sin: Math.sin(cfg.ry) };
+  const c = { base: 0, talk: cfg.id, ...cfg, open: false, angle: LID_CLOSED, pushes: 0, trap: new Map(), meshes: [], cos: Math.cos(cfg.ry), sin: Math.sin(cfg.ry) };
   const { w, h, d, t } = c;
   c.group = new THREE.Group();
-  c.group.position.set(c.x, 0, c.z); c.group.rotation.y = c.ry;
+  c.group.position.set(c.x, c.base, c.z); c.group.rotation.y = c.ry;
   scene.add(c.group);
   c.body = new CANNON.Body({ mass: 0, material: physMat });
   addBox(c, c.group, w, t, d, 0, t / 2, 0, c.inMat, true);                 // floor
@@ -229,7 +256,7 @@ function makeContainer(cfg) {
   addBox(c, c.group, t, h, d, w / 2 - t / 2, h / 2, 0, c.mat, true);
   if (c.kind === 'lid') addBox(c, c.group, w, h, t, 0, h / 2, d / 2 - t / 2, c.mat, true);   // front wall
   else addBox(c, c.group, w, t, d, 0, h - t / 2, 0, c.mat, true);                          // roof
-  c.body.position.set(c.x, 0, c.z);
+  c.body.position.set(c.x, c.base, c.z);
   c.body.quaternion.setFromEuler(0, c.ry, 0);
   world.addBody(c.body);
   // the moving parts ("leaves"): a lid, one door, or a pair of double doors that swing apart
@@ -253,11 +280,11 @@ function makeContainer(cfg) {
   c.door = c.leaves[0].mesh;
   c.build(c);
   const [ex, ez] = toWorld(c, 0, d / 2 + 1.8);
-  c.exit = new THREE.Vector3(ex, 0, ez);                          // where you land when you climb out
-  c.stand = { x: c.x, y: t, z: c.z };                             // where you stand up inside it
+  c.exit = new THREE.Vector3(ex, c.base, ez);                          // where you land when you climb out
+  c.stand = { x: c.x, y: c.base + t, z: c.z };                          // where you stand up inside it
   // where the NPC stands to toss someone in: in front, but off to the side of a single door (clear of its swing)
   const [fx_, fz] = c.kind === 'door' ? toWorld(c, w / 2 + 1.4, d / 2 + 1.6) : toWorld(c, 0, d / 2 + 1.9);
-  c.front = new THREE.Vector3(fx_, 0, fz);
+  c.front = new THREE.Vector3(fx_, c.base, fz);
   c.hop = c.kind === 'lid' ? 5.5 : 0.8;                           // how high you leap when climbing out
   placeDoor(c);
   return c;
@@ -273,8 +300,22 @@ function placeDoor(c) {
   }
 }
 const darkMat = stdMat(0x111827, 0.5);
+const UPSTAIRS = 9;               // height of the house's upstairs floor
+const wardrobe = (id, x, z, ry, base) => makeContainer({ id, talk: 'wardrobe', name: 'wardrobe', done: 'closeted', kind: 'double', x, z, ry, base, w: 6.4, h: 7, d: 3.8, t: 0.3,
+  mat: stdMat(0x8b5a2b, 0.7), inMat: stdMat(0x5c3a1a, 0.9), doorMat: stdMat(0x9c6631, 0.6),
+  build(c) {
+    addBox(c, c.group, c.w + 0.4, 0.3, c.d + 0.3, 0, c.h + 0.15, 0, stdMat(0x6f4421, 0.7));       // crown
+    const knobMat = stdMat(0xd4a017, 0.3, { metalness: 0.6 }), panelMat = stdMat(0x8a5729, 0.7);
+    for (const l of c.leaves) {     // a knob by the middle edge and a raised panel on each door
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), knobMat);
+      knob.position.set(l.sign * (c.w / 4 - 0.35), 0, 0.2); knob.castShadow = true; l.mesh.add(knob);
+      addBox(c, l.mesh, c.w / 2 - 0.9, c.h - 1.4, 0.06, 0, 0, 0.13, panelMat);
+    }
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, c.w - 0.6, 10), stdMat(0xc0c0c0, 0.3, { metalness: 0.7 }));
+    rail.rotation.z = Math.PI / 2; rail.position.set(0, c.h - 0.9, 0); c.group.add(rail);     // clothes rail
+  } });
 const CONTAINERS = [
-  makeContainer({ id: 'bin', name: 'bin', done: 'binned', kind: 'lid', x: -18, z: 8, ry: 0, w: 5.6, h: 3.6, d: 4.2, t: 0.3,
+  makeContainer({ id: 'bin', name: 'bin', done: 'binned', kind: 'lid', x: 6, z: -14, ry: Math.PI / 2, w: 5.6, h: 3.6, d: 4.2, t: 0.3,   // outside, by the house
     mat: stdMat(0x2f7d4f), inMat: stdMat(0x1d4a31, 0.9), doorMat: stdMat(0x245f3c, 0.5),
     build(c) {
       addBox(c, c.group, c.w + 0.2, 0.18, 0.18, 0, c.h - 0.1, c.d / 2 + 0.02, c.doorMat);   // front rim
@@ -286,7 +327,7 @@ const CONTAINERS = [
         c.group.add(wh);
       }
     } }),
-  makeContainer({ id: 'fridge', name: 'fridge', done: 'fridged', kind: 'door', x: 14, z: -28, ry: 0, w: 4.8, h: 6.6, d: 3.8, t: 0.3,
+  makeContainer({ id: 'fridge', name: 'fridge', done: 'fridged', kind: 'door', x: -16.5, z: -29.1, ry: 0, w: 4.8, h: 6.6, d: 3.8, t: 0.3,
     mat: stdMat(0xf3f4f6, 0.35), inMat: stdMat(0xdbeafe, 0.5), doorMat: stdMat(0xe5e7eb, 0.3),
     build(c) {
       const top = c.h / 2 - c.h * 0.3;                                                       // freezer compartment line
@@ -295,20 +336,8 @@ const CONTAINERS = [
       addBox(c, c.door, 0.16, 0.9, 0.16, c.w / 2 - 0.4, top + 0.7, 0.2, stdMat(0x6b7280, 0.3));
       addBox(c, c.group, 0.5, 0.12, 0.3, 0, c.h - c.t - 0.06, -c.d / 2 + 0.6, stdMat(0xffffff, 0.3, { emissive: 0xfff7cc }));  // the little light
     } }),
-  makeContainer({ id: 'wardrobe', name: 'wardrobe', done: 'closeted', kind: 'double', x: -28.5, z: -12, ry: Math.PI / 2, w: 6.4, h: 7, d: 3.8, t: 0.3,
-    mat: stdMat(0x8b5a2b, 0.7), inMat: stdMat(0x5c3a1a, 0.9), doorMat: stdMat(0x9c6631, 0.6),
-    build(c) {
-      addBox(c, c.group, c.w + 0.4, 0.3, c.d + 0.3, 0, c.h + 0.15, 0, stdMat(0x6f4421, 0.7));       // crown
-      const knobMat = stdMat(0xd4a017, 0.3, { metalness: 0.6 }), panelMat = stdMat(0x8a5729, 0.7);
-      for (const l of c.leaves) {     // a knob by the middle edge and a raised panel on each door
-        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), knobMat);
-        knob.position.set(l.sign * (c.w / 4 - 0.35), 0, 0.2); knob.castShadow = true; l.mesh.add(knob);
-        addBox(c, l.mesh, c.w / 2 - 0.9, c.h - 1.4, 0.06, 0, 0, 0.13, panelMat);
-      }
-      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, c.w - 0.6, 10), stdMat(0xc0c0c0, 0.3, { metalness: 0.7 }));
-      rail.rotation.z = Math.PI / 2; rail.position.set(0, c.h - 0.9, 0); c.group.add(rail);     // clothes rail
-    } }),
-  makeContainer({ id: 'freezer', name: 'chest freezer', done: 'frozen', kind: 'lid', x: 16, z: 26, ry: Math.PI, w: 7, h: 3.2, d: 4.2, t: 0.3,
+  wardrobe('wardrobe', -29.1, -15, Math.PI / 2, UPSTAIRS),          // upstairs: one against the left wall...
+  makeContainer({ id: 'freezer', name: 'chest freezer', done: 'frozen', kind: 'lid', x: -25.5, z: -27.6, ry: 0, w: 7, h: 3.2, d: 4.2, t: 0.3,
     mat: stdMat(0xf8fafc, 0.35), inMat: stdMat(0xbfdbfe, 0.4), doorMat: stdMat(0xe2e8f0, 0.3),
     build(c) {
       addBox(c, c.door, 2.2, 0.14, 0.16, 0, 0.12, c.d / 2 + 0.06, stdMat(0x6b7280, 0.3));          // lid handle
@@ -316,13 +345,28 @@ const CONTAINERS = [
       addBox(c, c.group, 0.9, 0.4, 0.08, c.w / 2 - 0.9, c.h - 0.5, c.d / 2 + 0.04, stdMat(0x374151, 0.5));   // control panel
       addBox(c, c.group, 0.14, 0.14, 0.06, c.w / 2 - 1.1, c.h - 0.5, c.d / 2 + 0.1, stdMat(0x22c55e, 0.3, { emissive: 0x16a34a }));
     } }),
+  wardrobe('wardrobe2', -27, -6.2, Math.PI, UPSTAIRS),             // ...and one against the front wall
+  makeContainer({ id: 'bbq', name: 'barbecue', done: 'grilled', kind: 'lid', x: -18, z: -38, ry: 0, w: 5.2, h: 3, d: 3.6, t: 0.3,   // in the garden
+    mat: stdMat(0x1f2937, 0.4, { metalness: 0.5 }), inMat: stdMat(0x7c2d12, 0.9, { emissive: 0xff4500, emissiveIntensity: 0.7 }), doorMat: stdMat(0x111827, 0.35, { metalness: 0.6 }),
+    build(c) {
+      const steel = stdMat(0x9ca3af, 0.35, { metalness: 0.7 });
+      addBox(c, c.door, 1.6, 0.14, 0.14, 0, 0.16, c.d / 2 + 0.08, steel);                         // lid handle
+      addBox(c, c.door, 0.4, 0.5, 0.4, -c.w / 2 + 0.8, 0.36, 0, c.mat);                           // little chimney vent
+      for (const sx of [-1, 1]) addBox(c, c.group, 1.3, 0.14, c.d - 0.6, sx * (c.w / 2 + 0.65), c.h - 0.35, 0, steel);   // side shelves
+      for (let i = 0; i < 6; i++) addBox(c, c.group, 0.06, 0.06, c.d - 0.7, -c.w / 2 + 0.7 + i * ((c.w - 1.4) / 5), c.h - 0.6, 0, steel);   // the grill
+      const coals = new THREE.PointLight(0xff6a00, 6, 7, 2);
+      coals.position.set(0, 0.9, 0); c.group.add(coals);
+      const gas = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.6, 14), stdMat(0x2563eb, 0.5));
+      gas.position.set(c.w / 2 + 1.0, 0.8, -0.6); gas.castShadow = true; c.group.add(gas);
+    } }),
 ];
 const containerMeshes = CONTAINERS.flatMap((c) => c.meshes);
-const inPos = (c, p) => { const [lx, lz] = toLocal(c, p.x, p.z); return Math.abs(lx) < c.w / 2 && Math.abs(lz) < c.d / 2 && p.y < c.h + 0.4; };
+const inPos = (c, p) => { const [lx, lz] = toLocal(c, p.x, p.z); return Math.abs(lx) < c.w / 2 && Math.abs(lz) < c.d / 2 && p.y > c.base - 0.5 && p.y < c.base + c.h + 0.4; };
 const containerAt = (p) => CONTAINERS.find((c) => inPos(c, p));
 // keep standing characters from walking through the containers
 function pushOutOfContainers(r) {
   for (const c of CONTAINERS) {
+    if (Math.abs(r.y - c.base) > 3) continue;          // on another floor
     const hx = c.w / 2 + 1.3, hz = c.d / 2 + 1.3;
     let [lx, lz] = toLocal(c, r.x, r.z);
     if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
@@ -331,6 +375,391 @@ function pushOutOfContainers(r) {
     [r.x, r.z] = toWorld(c, lx, lz);
   }
 }
+
+/* ================= The house ================= */
+// Two storeys in the back-left corner of the arena: front and side doors, open windows, stairs up the
+// east wall to a landing. All the containers are downstairs. The roof is just for looks and hides
+// while you're indoors.
+const HOUSE = { x0: -31.7, x1: -0.7, z0: -31.7, z1: -3.7, h: 8.5, up: UPSTAIRS, t: 0.6 };   // up: upstairs floor height
+const ROOF_Y = HOUSE.up + HOUSE.h + 0.5;
+// the stairs: a straight flight running north along the east wall, from the bottom (z0) up to the landing (z1)
+const STAIRS = { x0: -5.6, x1: -1.3, zBottom: -11, zTop: -29 };
+const STAIR_BOTTOM = new THREE.Vector3((STAIRS.x0 + STAIRS.x1) / 2, 0, STAIRS.zBottom + 1.4);
+const STAIR_TOP = new THREE.Vector3((STAIRS.x0 + STAIRS.x1) / 2, HOUSE.up, STAIRS.zTop - 1.2);
+const onStairs = (x, z) => x > STAIRS.x0 && x < STAIRS.x1 && z < STAIRS.zBottom && z > STAIRS.zTop;
+const stairHeight = (z) => HOUSE.up * THREE.MathUtils.clamp((STAIRS.zBottom - z) / (STAIRS.zBottom - STAIRS.zTop), 0, 1);
+const houseMeshes = [], houseBlocks = [];   // blocks: boxes that stop walking characters (at their height)
+const darkWoodRail = stdMat(0x5d3a22, 0.7);
+const wallMat = stdMat(0xf1e4cf, 0.9), slabMat = stdMat(0xd6c4a8, 0.9), stepMat = stdMat(0xa47148, 0.8);
+const houseBody = new CANNON.Body({ mass: 0, material: physMat });
+function houseBox(sx, sy, sz, x, y, z, mat = wallMat, block = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+  scene.add(m); houseMeshes.push(m);
+  houseBody.addShape(new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)), new CANNON.Vec3(x, y, z));
+  if (block) houseBlocks.push({ x, z, hx: sx / 2, hz: sz / 2, y0: y - sy / 2, y1: y + sy / 2 });
+}
+// a straight wall along x (alongX) or z from a to b, standing on base, with openings [{ at, w, sill, top }] (doors have sill 0)
+function houseWall(alongX, fixed, a, b, base, openings = []) {
+  const { h, t } = HOUSE;
+  const seg = (s0, s1, y0, y1) => {
+    if (s1 - s0 < 0.01 || y1 - y0 < 0.01) return;
+    const mid = (s0 + s1) / 2, len = s1 - s0, cy = base + (y0 + y1) / 2;
+    if (alongX) houseBox(len, y1 - y0, t, mid, cy, fixed); else houseBox(t, y1 - y0, len, fixed, cy, mid);
+  };
+  let s = a;
+  for (const o of [...openings].sort((p, q) => p.at - q.at)) {
+    seg(s, o.at - o.w / 2, 0, h + 0.5);
+    seg(o.at - o.w / 2, o.at + o.w / 2, 0, o.sill);
+    seg(o.at - o.w / 2, o.at + o.w / 2, o.top, h + 0.5);
+    s = o.at + o.w / 2;
+  }
+  seg(s, b, 0, h + 0.5);
+}
+const HOUSE_DOORS = [   // c: middle of the doorway, n: which way is outside, w: how wide
+  { c: new THREE.Vector3(-12, 0, HOUSE.z1 - HOUSE.t / 2), n: [0, 1], w: 6 },           // front
+  { c: new THREE.Vector3(HOUSE.x1 - HOUSE.t / 2, 0, -7.4), n: [1, 0], w: 5 },          // side
+  { c: new THREE.Vector3(-9, 0, HOUSE.z0 + HOUSE.t / 2), n: [0, -1], w: 5 },           // back, out to the garden
+];
+for (const d of HOUSE_DOORS) {
+  d.inn = new THREE.Vector3(d.c.x - d.n[0] * 2.2, 0, d.c.z - d.n[1] * 2.2);
+  d.out = new THREE.Vector3(d.c.x + d.n[0] * 2.2, 0, d.c.z + d.n[1] * 2.2);
+}
+// the doors themselves: they swing open (away from you) when someone walks into them, and swing shut once nobody's there
+const DOOR_OPEN = 1.6;
+const doorLeaves = [];
+{
+  const doorMat = stdMat(0x7f4f24, 0.7), knobMat = stdMat(0xd4a017, 0.3, { metalness: 0.6 });
+  for (const d of HOUSE_DOORS) {
+    const along = d.n[0] ? [0, 1] : [1, 0];                 // which way the doorway runs (x, z)
+    const pivot = new THREE.Group();                        // fixed, at the hinge; local +x runs across the doorway
+    pivot.position.set(d.c.x - along[0] * d.w / 2, 0, d.c.z - along[1] * d.w / 2);
+    pivot.rotation.y = along[0] ? 0 : -Math.PI / 2;
+    scene.add(pivot);
+    const swing = new THREE.Group();
+    pivot.add(swing);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(d.w - 0.1, 5.9, 0.22), doorMat);
+    mesh.position.set(d.w / 2, 2.95, 0); mesh.castShadow = true; mesh.receiveShadow = true;
+    for (const s of [-1, 1]) {
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), knobMat);
+      knob.position.set(d.w / 2 - 0.5, -0.2, s * 0.2); mesh.add(knob);
+    }
+    swing.add(mesh);
+    houseMeshes.push(mesh);
+    const body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: physMat });
+    body.addShape(new CANNON.Box(new CANNON.Vec3((d.w - 0.1) / 2, 2.95, 0.11)));
+    world.addBody(body);
+    pivot.updateMatrixWorld(true);
+    const leaf = { d, pivot, swing, mesh, body, angle: 0, side: 1 };
+    doorLeaves.push(leaf);
+    placeLeaf(leaf);
+  }
+}
+function placeLeaf(l) {
+  l.swing.rotation.y = l.angle;
+  l.mesh.getWorldPosition(_lp); l.mesh.getWorldQuaternion(_lq);
+  l.body.position.set(_lp.x, _lp.y, _lp.z);
+  l.body.quaternion.set(_lq.x, _lq.y, _lq.z, _lq.w);
+  l.body.aabbNeedsUpdate = true;
+}
+const _dl = new THREE.Vector3();
+function updateHouseDoors(dt) {   // host
+  for (const l of doorLeaves) {
+    let want = false;
+    for (const ch of allChars()) {
+      const p = ch.state === 'ragdoll' ? ch.torso.position : ch.root;
+      if (p.y > 5) continue;
+      l.pivot.worldToLocal(_dl.set(p.x, 0, p.z));
+      if (_dl.x > -1 && _dl.x < l.d.w + 1 && Math.abs(_dl.z) < 1.8) {   // touching it (a closed door holds you about 1.3 away)
+        want = true;
+        if (Math.abs(l.angle) < 0.15) l.side = _dl.z > 0 ? 1 : -1;   // open away from whoever's coming through
+        break;
+      }
+    }
+    const target = want ? DOOR_OPEN * l.side : 0;
+    if (target === l.angle) continue;
+    const rate = want ? 3 : 2.2;          // pushed open, then it swings shut by itself
+    l.angle += THREE.MathUtils.clamp(target - l.angle, -rate * dt, rate * dt);
+    placeLeaf(l);
+  }
+}
+const flatRect = (w, d, color, x, y, z) => {    // rugs, mats and floors
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), stdMat(color, 0.95));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true;
+  scene.add(m);
+};
+{
+  const { x0, x1, z0, z1, t, up } = HOUSE;
+  const win = (at, w = 5) => ({ at, w, sill: 2.5, top: 5.5 });
+  // ground floor
+  houseWall(true, z0 + t / 2, x0, x1, 0, [{ at: -9, w: 5, sill: 0, top: 6 }, win(-26)]);       // back
+  houseWall(true, z1 - t / 2, x0, x1, 0, [{ at: -12, w: 6, sill: 0, top: 6 }, win(-24), win(-4.5, 3.5)]);   // front
+  houseWall(false, x0 + t / 2, z0 + t, z1 - t, 0, [win(-24, 4)]);                                  // left
+  houseWall(false, x1 - t / 2, z0 + t, z1 - t, 0, [{ at: -7.4, w: 5, sill: 0, top: 6 }, win(-20, 3.5)]);   // right
+  // upstairs
+  houseWall(true, z0 + t / 2, x0, x1, up, [win(-20), win(-9, 4)]);
+  houseWall(true, z1 - t / 2, x0, x1, up, [win(-17), win(-10), win(-4.5, 3.5)]);
+  houseWall(false, x0 + t / 2, z0 + t, z1 - t, up, [win(-26, 3)]);
+  houseWall(false, x1 - t / 2, z0 + t, z1 - t, up, [win(-18, 4)]);
+  // the upstairs floor, with a hole over the stairs
+  const ix0 = x0 + t, ix1 = x1 - t, iz0 = z0 + t, iz1 = z1 - t, sy = 0.4, sc = up - sy / 2;
+  houseBox(STAIRS.x0 - ix0, sy, iz1 - iz0, (ix0 + STAIRS.x0) / 2, sc, (iz0 + iz1) / 2, slabMat);
+  houseBox(ix1 - STAIRS.x0, sy, STAIRS.zTop - iz0, (STAIRS.x0 + ix1) / 2, sc, (iz0 + STAIRS.zTop) / 2, slabMat);   // landing
+  houseBox(ix1 - STAIRS.x0, sy, iz1 - STAIRS.zBottom, (STAIRS.x0 + ix1) / 2, sc, (STAIRS.zBottom + iz1) / 2, slabMat);
+  // railings round the stairwell (open at the top so you can step off the stairs)
+  houseBox(0.2, 1.6, (STAIRS.zBottom - STAIRS.zTop) - 2.2, STAIRS.x0 - 0.1, up + 0.8, (STAIRS.zBottom + STAIRS.zTop + 2.2) / 2, darkWoodRail);
+  houseBox(STAIRS.x1 - STAIRS.x0, 1.6, 0.2, (STAIRS.x0 + STAIRS.x1) / 2, up + 0.8, STAIRS.zBottom + 0.1, darkWoodRail);
+  // the steps (solid underneath; walking up them is handled by stairHeight, so they don't block)
+  const n = 18, run = (STAIRS.zBottom - STAIRS.zTop) / n;
+  for (let i = 0; i < n; i++) {
+    const top = (i + 1) * (up / n), z = STAIRS.zBottom - (i + 0.5) * run;
+    houseBox(STAIRS.x1 - STAIRS.x0, top, run, (STAIRS.x0 + STAIRS.x1) / 2, top / 2, z, stepMat, false);
+  }
+  world.addBody(houseBody);
+  flatRect(ix1 - ix0, iz1 - iz0, 0xb98b5e, (x0 + x1) / 2, 0.015, (z0 + z1) / 2);     // floorboards
+  flatRect(7, 5, 0x9d4edd, -21, 0.025, -10);                                         // rug downstairs
+  flatRect(6, 4.5, 0x2a9d8f, -18, up + 0.01, -14);                                    // rug upstairs
+  flatRect(4, 1.6, 0x6b4f3a, -12, 0.02, z1 + 1.1);                                    // doormat
+  for (const [y, i] of [[up - 0.6, 1.1], [ROOF_Y - 1, 0.9]]) {                        // ceiling lights
+    const l = new THREE.PointLight(0xfff1d6, i * 40, 34, 1.6);
+    l.position.set(-16, y, -17); scene.add(l);
+  }
+}
+// the garden behind the house (and down its left side): grass, a patio with the barbecue, flower beds and trees
+{
+  const e = ARENA - 0.3;
+  flatRect(e + 2, e + HOUSE.z0, 0x6aa84f, (-e + 2) / 2, 0.012, (-e + HOUSE.z0) / 2);             // behind the house
+  flatRect(e + HOUSE.x0, HOUSE.z1 - HOUSE.z0, 0x6aa84f, (-e + HOUSE.x0) / 2, 0.012, (HOUSE.z0 + HOUSE.z1) / 2);   // down the left side
+  flatRect(9, 7, 0xa8a29e, -18, 0.02, -38);                                       // patio
+  flatRect(2.6, HOUSE.z0 + 36.3, 0xc8b08a, -9, 0.02, (HOUSE.z0 - 36.3) / 2);       // path from the back door
+  const soil = stdMat(0x5b3a1e, 1), stem = stdMat(0x2e7d32, 0.8);
+  const petals = [0xef476f, 0xffd166, 0xf8f9fa, 0x9b5de5, 0xff8fab].map((c) => stdMat(c, 0.7));
+  for (const [x0, x1] of [[-30, -22], [-4, 1]]) {                                 // flower beds along the back wall
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.35, 1.2), soil);
+    bed.position.set((x0 + x1) / 2, 0.17, HOUSE.z0 - 0.9); bed.receiveShadow = true; scene.add(bed);
+    for (let x = x0 + 0.5, i = 0; x < x1; x += 0.8, i++) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.7, 5), stem);
+      s.position.set(x, 0.6, HOUSE.z0 - 0.9 + (i % 2 ? 0.25 : -0.25)); scene.add(s);
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), petals[i % petals.length]);
+      fl.position.set(x, 1.0, s.position.z); fl.castShadow = true; scene.add(fl);
+    }
+  }
+  const bark = stdMat(0x6d4c41, 0.9), leaves = [stdMat(0x2d6a4f, 0.8), stdMat(0x40916c, 0.8)];
+  for (const [x, z] of [[-40, -40], [-2, -41], [-40, -12]]) {                    // trees (you can't walk through the trunks)
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 6, 10), bark);
+    trunk.position.set(x, 3, z); trunk.castShadow = true; scene.add(trunk); houseMeshes.push(trunk);
+    for (const [dx, dy, dz, r] of [[0, 7, 0, 2.6], [1.3, 6, 0.8, 1.9], [-1.2, 6.3, -0.7, 2], [0.2, 8.4, -0.3, 1.7]]) {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), leaves[(dx > 0) | 0]);
+      ball.position.set(x + dx, dy, z + dz); ball.castShadow = true; scene.add(ball); houseMeshes.push(ball);
+    }
+    const tb = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Cylinder(0.6, 0.6, 6, 10) });
+    tb.position.set(x, 3, z); world.addBody(tb);
+    houseBlocks.push({ x, z, hx: 0.6, hz: 0.6, y0: 0, y1: 6 });
+  }
+}
+// the roof: a triangular prism with the ridge running along x, and a chimney
+const roof = new THREE.Group();
+{
+  const { x0, x1, z0, z1 } = HOUSE, o = 0.8, zm = (z0 + z1) / 2;
+  const sh = new THREE.Shape([new THREE.Vector2(-(z1 + o), 0), new THREE.Vector2(-(z0 - o), 0), new THREE.Vector2(-zm, 7)]);
+  const prism = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: x1 - x0 + 2 * o, bevelEnabled: false }), stdMat(0xa63d40, 0.8));
+  prism.rotation.y = Math.PI / 2;            // shape x → world −z, extrusion → world +x
+  prism.position.set(x0 - o, ROOF_Y, 0);
+  prism.castShadow = true;
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(1.8, 5, 1.8), stdMat(0x7f5539, 0.9));
+  chimney.position.set(x0 + 7, ROOF_Y + 5, zm - 5); chimney.castShadow = true;
+  roof.add(prism, chimney);
+  scene.add(roof);
+}
+const inHouse = (p, m = 0) => p.x > HOUSE.x0 - m && p.x < HOUSE.x1 + m && p.z > HOUSE.z0 - m && p.z < HOUSE.z1 + m;
+const upstairsAt = (x, z) => inHouse({ x, z }, -HOUSE.t) && !onStairs(x, z);
+// the floor under a standing character at height y: the highest surface they could step onto (up to STEP above their feet)
+const STEP = 1.3, HEAD = 4.6;
+function surfacesAt(x, z) {
+  const s = [0];
+  if (upstairsAt(x, z)) s.push(HOUSE.up);
+  if (onStairs(x, z)) s.push(stairHeight(z));
+  return s;
+}
+function groundAt(x, z, y) {
+  let best = 0;
+  for (const s of surfacesAt(x, z)) if (s <= y + STEP && s > best) best = s;
+  return best;
+}
+// something at head/body height in the way (like the side of the stairs)? then you can't walk there
+const tooHigh = (x, z, y) => surfacesAt(x, z).some((s) => s > y + STEP && s < y + HEAD);
+// keep standing characters out of walls and containers
+function pushOutOfObstacles(r) {
+  pushOutOfContainers(r);
+  // a door that isn't open far enough yet stops you, so you have to push it open
+  for (const l of doorLeaves) {
+    if (Math.abs(l.angle) > 0.9 || r.y > 3) continue;
+    const d = l.d, acrossX = !d.n[0], hx = (acrossX ? d.w / 2 : 0.11) + 1.3, hz = (acrossX ? 0.11 : d.w / 2) + 1.3;
+    const lx = r.x - d.c.x, lz = r.z - d.c.z;
+    if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
+    if (acrossX) r.z = d.c.z + Math.sign(lz || 1) * hz; else r.x = d.c.x + Math.sign(lx || 1) * hx;
+  }
+  for (const b of houseBlocks) {
+    if (b.y0 > r.y + HEAD || b.y1 < r.y + STEP) continue;     // above your head, or low enough to step over
+    const hx = b.hx + 1.2, hz = b.hz + 1.2, lx = r.x - b.x, lz = r.z - b.z;
+    if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
+    if (hx - Math.abs(lx) < hz - Math.abs(lz)) r.x = b.x + Math.sign(lx || 1) * hx;
+    else r.z = b.z + Math.sign(lz || 1) * hz;
+  }
+}
+// NPC navigation: through a doorway to get in or out, round the house's corner outside, and up or down the stairs
+const HOUSE_CORNERS = [[HOUSE.x0 - 2.6, HOUSE.z0 - 2.6], [HOUSE.x1 + 2.6, HOUSE.z0 - 2.6], [HOUSE.x0 - 2.6, HOUSE.z1 + 2.6], [HOUSE.x1 + 2.6, HOUSE.z1 + 2.6]]
+  .map(([x, z]) => new THREE.Vector3(x, 0, z));
+function segHitsHouse(a, b, m) {   // does the segment a→b cross the house rectangle (grown by m)?
+  let t0 = 0, t1 = 1;
+  for (const [p, d, lo, hi] of [[a.x, b.x - a.x, HOUSE.x0 - m, HOUSE.x1 + m], [a.z, b.z - a.z, HOUSE.z0 - m, HOUSE.z1 + m]]) {
+    if (Math.abs(d) < 1e-6) { if (p < lo || p > hi) return false; continue; }
+    let u = (lo - p) / d, v = (hi - p) / d;
+    if (u > v) [u, v] = [v, u];
+    t0 = Math.max(t0, u); t1 = Math.min(t1, v);
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+// outside, head for whichever corner of the house gets you round it (one corner at a time)
+function outsideTo(pos, target) {
+  if (!segHitsHouse(pos, target, 1)) return target;
+  let best = target, bestD = Infinity;
+  for (const c of HOUSE_CORNERS) {
+    const d0 = Math.hypot(pos.x - c.x, pos.z - c.z);
+    if (d0 < 1.5 || segHitsHouse(pos, c, 1)) continue;
+    const d = d0 + Math.hypot(c.x - target.x, c.z - target.z) + (segHitsHouse(c, target, 1) ? 30 : 0);
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+const levelOf = (p) => (onStairs(p.x, p.z) ? 'stairs' : p.y > HOUSE.up / 2 ? 1 : 0);
+const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+function stairsTo(pos, level) {    // the next point to head for to get to floor `level` indoors
+  const at = levelOf(pos);
+  if (at === 'stairs') return level === 1 ? STAIR_TOP : STAIR_BOTTOM;
+  if (at === 0) return flat(pos, STAIR_BOTTOM) < 1.2 ? STAIR_TOP : STAIR_BOTTOM;
+  return flat(pos, STAIR_TOP) < 1.2 ? STAIR_BOTTOM : STAIR_TOP;
+}
+const _np = new THREE.Vector3();
+function routeGoal(r, goal) {
+  const pos = _np.set(r.x, r.y, r.z);
+  const a = inHouse(pos), b = inHouse(goal);
+  const goalLevel = b ? (levelOf(goal) === 'stairs' ? (goal.y > HOUSE.up / 2 ? 1 : 0) : levelOf(goal)) : 0;
+  if (a && levelOf(pos) !== goalLevel) return stairsTo(pos, goalLevel);   // sort out the floor first
+  if (a === b) return a ? goal : outsideTo(pos, goal);
+  let best = null, bestD = Infinity;
+  for (const d of HOUSE_DOORS) {
+    const near = a ? d.inn : d.out, far = a ? d.out : d.inn;
+    const cost = pos.distanceTo(near) + far.distanceTo(goal);
+    if (cost < bestD) { bestD = cost; best = d; }
+  }
+  if (flat(pos, best.c) < 2.6) return a ? best.out : best.inn;   // in the doorway: go on through
+  return a ? best.inn : outsideTo(pos, best.out);
+}
+// spots the NPC can stand on (not in a wall, a container, or the stairs)
+function walkable(x, z, y = 0) {
+  if (houseBlocks.some((b) => b.y0 < y + HEAD && b.y1 > y + STEP && Math.abs(x - b.x) < b.hx + 2.5 && Math.abs(z - b.z) < b.hz + 2.5)) return false;
+  if (x > STAIRS.x0 - 1.5 && x < STAIRS.x1 + 1.5 && z < STAIRS.zBottom + 2 && z > STAIRS.zTop - 1.5) return false;
+  if (y > 0) return upstairsAt(x, z);
+  return !CONTAINERS.some((c) => { if (Math.abs(c.base - y) > 3) return false; const [lx, lz] = toLocal(c, x, z); return Math.abs(lx) < c.w / 2 + 2 && Math.abs(lz) < c.d / 2 + 2; });
+}
+
+/* ================= Furniture ================= */
+// Physics props: push them by walking into them, grab and throw them, shoot them. Thrown furniture knocks people over.
+const FURNITURE = [];
+const furnitureMeshes = [];
+const woodMat = stdMat(0x8d5a3b, 0.7), darkWoodMat = stdMat(0x5d3a22, 0.7), metalMat = stdMat(0x9ca3af, 0.4, { metalness: 0.5 });
+// parts: [sx, sy, sz, x, y, z, mat, solid?] with y measured from the floor; base: which floor it stands on
+function makeFurniture({ name, x, z, ry = 0, base = 0, mass, parts }) {
+  const top = Math.max(...parts.filter((p) => p[7] !== false).map((p) => p[4] + p[1] / 2));
+  const cy = top / 2;                        // body origin (= centre of mass) halfway up
+  const g = new THREE.Group();
+  scene.add(g);
+  const body = new CANNON.Body({ mass, material: physMat, linearDamping: 0.1, angularDamping: 0.3 });
+  const f = { name, body, mesh: g, start: { x, y: base + cy, z, ry }, thrownAt: -1e9, owner: null, heldBy: null };
+  for (const [sx, sy, sz, px, py, pz, mat, solid = true] of parts) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+    m.position.set(px, py - cy, pz); m.castShadow = true; m.receiveShadow = true;
+    m.userData.furn = f;
+    g.add(m); furnitureMeshes.push(m);
+    if (solid) body.addShape(new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)), new CANNON.Vec3(px, py - cy, pz));
+  }
+  body.isFurn = true; body.furn = f;
+  world.addBody(body);
+  FURNITURE.push(f);
+  placeFurniture(f);
+  return f;
+}
+function placeFurniture(f) {
+  const { body, start } = f;
+  body.position.set(start.x, start.y, start.z);
+  body.quaternion.setFromEuler(0, start.ry, 0);
+  body.velocity.setZero(); body.angularVelocity.setZero();
+  f.mesh.position.copy(body.position); f.mesh.quaternion.copy(body.quaternion);
+  f.thrownAt = -1e9; f.owner = null;
+}
+const leg = (x, z, h, s = 0.2, mat = woodMat) => [s, h, s, x, h / 2, z, mat];
+{
+  const up = HOUSE.up;
+  const fabric = stdMat(0x4f6d7a, 0.9), cushion = stdMat(0x6c8ea0, 0.9);
+  const sofa = (x, z, ry, base, col = fabric, cush = cushion) => makeFurniture({ name: 'sofa', x, z, ry, base, mass: 12, parts: [
+    [6, 1.1, 2.2, 0, 0.55, 0, col], [6, 1.6, 0.5, 0, 1.9, -0.85, col],
+    [0.5, 0.7, 2.2, -2.75, 1.45, 0, col], [0.5, 0.7, 2.2, 2.75, 1.45, 0, col],
+    [2.45, 0.3, 1.6, -1.25, 1.25, 0.2, cush, false], [2.45, 0.3, 1.6, 1.25, 1.25, 0.2, cush, false]] });
+  const chair = (x, z, ry, base = 0) => makeFurniture({ name: 'chair', x, z, ry, base, mass: 1.5, parts: [
+    [1.2, 0.2, 1.2, 0, 1.1, 0, woodMat], leg(-0.5, -0.5, 1, 0.15), leg(0.5, -0.5, 1, 0.15), leg(-0.5, 0.5, 1, 0.15), leg(0.5, 0.5, 1, 0.15),
+    [1.2, 1.4, 0.15, 0, 1.9, -0.53, woodMat]] });
+  const lamp = (x, z, base) => makeFurniture({ name: 'lamp', x, z, base, mass: 1.5, parts: [
+    [0.8, 0.15, 0.8, 0, 0.075, 0, metalMat], [0.15, 3.2, 0.15, 0, 1.75, 0, metalMat],
+    [1.1, 0.8, 1.1, 0, 3.6, 0, stdMat(0xffe8a3, 0.6, { emissive: 0xb08a2e })]] });
+  // downstairs: living room and dining table
+  sofa(-21, -5.6, Math.PI, 0);
+  makeFurniture({ name: 'coffee table', x: -21, z: -9.6, mass: 3, parts: [
+    [3, 0.2, 1.6, 0, 1.1, 0, woodMat], leg(-1.3, -0.6, 1), leg(1.3, -0.6, 1), leg(-1.3, 0.6, 1), leg(1.3, 0.6, 1)] });
+  makeFurniture({ name: 'tv', x: -21, z: -14.6, mass: 6, parts: [
+    [4, 1.4, 1.2, 0, 0.7, 0, darkWoodMat], [0.8, 0.1, 0.5, 0, 1.45, 0, metalMat],
+    [3.4, 2, 0.2, 0, 2.5, 0, stdMat(0x111827, 0.4)], [3.1, 1.75, 0.02, 0, 2.5, 0.11, stdMat(0x1e3a5f, 0.2, { emissive: 0x0b2545 }), false]] });
+  makeFurniture({ name: 'dining table', x: -12, z: -13, mass: 5, parts: [
+    [4, 0.25, 2.4, 0, 1.9, 0, woodMat], leg(-1.7, -1, 1.8, 0.25), leg(1.7, -1, 1.8, 0.25), leg(-1.7, 1, 1.8, 0.25), leg(1.7, 1, 1.8, 0.25)] });
+  chair(-13, -10.6, Math.PI); chair(-11, -10.6, Math.PI); chair(-12, -15.4, 0);
+  lamp(-29.6, -6, 0);
+  // upstairs: bedroom and study
+  makeFurniture({ name: 'bed', x: -28.6, z: -25.5, base: up, mass: 15, parts: [
+    [3.6, 0.8, 6, 0, 0.4, 0, woodMat], [3.4, 0.5, 5.7, 0, 1.05, 0.1, stdMat(0xf5f5f5, 0.9)],
+    [3.5, 0.14, 3.6, 0, 1.36, 1.1, stdMat(0x3a86ff, 0.9), false], [2.4, 0.35, 0.9, 0, 1.45, -2.2, stdMat(0xffffff, 0.9), false],
+    [3.6, 2.4, 0.3, 0, 1.2, -2.85, darkWoodMat]] });
+  makeFurniture({ name: 'nightstand', x: -29.6, z: -21, base: up, mass: 2, parts: [
+    [1.4, 1.4, 1.4, 0, 0.7, 0, darkWoodMat], [0.6, 0.06, 0.1, 0, 1.0, 0.72, metalMat, false]] });
+  makeFurniture({ name: 'desk', x: -13, z: -29.9, base: up, mass: 6, parts: [
+    [4, 0.2, 2, 0, 2.1, 0, woodMat], [0.25, 2, 1.8, -1.8, 1, 0, woodMat], [0.25, 2, 1.8, 1.8, 1, 0, woodMat],
+    [1.6, 1.1, 0.12, 0, 2.8, -0.6, stdMat(0x111827, 0.4)], [1.45, 0.95, 0.02, 0, 2.8, -0.53, stdMat(0x3b82f6, 0.3, { emissive: 0x1e3a8a }), false]] });
+  chair(-13, -27.7, Math.PI, up);
+  const books = [[4, 5, 1, 0, 2.5, 0, woodMat]];
+  const bookMats = [0xe63946, 0x457b9d, 0x2a9d8f, 0xe9c46a, 0x6d597a].map((c) => stdMat(c, 0.8));
+  for (let row = 0; row < 4; row++) {
+    books.push([3.9, 0.1, 0.12, 0, 0.6 + row * 1.15, 0.53, darkWoodMat, false]);
+    for (let i = 0; i < 7; i++) books.push([0.4, 0.7 + (i % 3) * 0.1, 0.1, -1.5 + i * 0.5, 1.05 + row * 1.15, 0.53, bookMats[(i + row * 2) % 5], false]);
+  }
+  makeFurniture({ name: 'bookshelf', x: -21, z: -30.5, base: up, mass: 8, parts: books });
+  sofa(-17, -5.6, Math.PI, up, stdMat(0x9c6644, 0.9), stdMat(0xddb892, 0.9));
+  makeFurniture({ name: 'coffee table', x: -17, z: -9.6, base: up, mass: 3, parts: [
+    [3, 0.2, 1.6, 0, 1.1, 0, darkWoodMat], leg(-1.3, -0.6, 1, 0.2, darkWoodMat), leg(1.3, -0.6, 1, 0.2, darkWoodMat), leg(-1.3, 0.6, 1, 0.2, darkWoodMat), leg(1.3, 0.6, 1, 0.2, darkWoodMat)] });
+  lamp(-8, -5.6, up);
+  // the garden: a picnic table and a couple of gnomes
+  const pine = stdMat(0xc9a66b, 0.8);
+  makeFurniture({ name: 'picnic table', x: -32, z: -38, mass: 10, parts: [
+    [5, 0.25, 2.2, 0, 2.3, 0, pine], [5, 0.22, 0.9, 0, 1.3, -1.7, pine], [5, 0.22, 0.9, 0, 1.3, 1.7, pine],
+    [0.25, 2.2, 0.25, -2, 1.1, -0.8, pine], [0.25, 2.2, 0.25, 2, 1.1, -0.8, pine], [0.25, 2.2, 0.25, -2, 1.1, 0.8, pine], [0.25, 2.2, 0.25, 2, 1.1, 0.8, pine],
+    [0.25, 1.2, 0.25, -2, 0.6, -1.9, pine], [0.25, 1.2, 0.25, 2, 0.6, -1.9, pine], [0.25, 1.2, 0.25, -2, 0.6, 1.9, pine], [0.25, 1.2, 0.25, 2, 0.6, 1.9, pine]] });
+  const gnome = (x, z, ry) => makeFurniture({ name: 'gnome', x, z, ry, mass: 1, parts: [
+    [0.8, 1.0, 0.7, 0, 0.5, 0, stdMat(0x1d4ed8, 0.7)], [0.6, 0.55, 0.55, 0, 1.3, 0, stdMat(0xf2c9a0, 0.6)],
+    [0.62, 0.3, 0.2, 0, 1.12, 0.22, stdMat(0xffffff, 0.9)], [0.5, 0.8, 0.5, 0, 1.97, 0, stdMat(0xdc2626, 0.6)]] });
+  gnome(-24, -34, 0); gnome(-3, -36, -0.6); gnome(-38, -22, Math.PI / 2);
+}
+
+// everything that blocks shots, throws, grabs and the NPC's view
+const sceneryMeshes = [...containerMeshes, ...houseMeshes, ...furnitureMeshes];
 
 /* ================= Sound ================= */
 let actx = null;
@@ -416,6 +845,12 @@ class Character {
       world.addBody(body);
       body.addEventListener('collide', (e) => {
         const other = e.body;
+        if (other.isFurn) {          // only furniture that's been thrown (or shot) recently hurts; bumping into a chair doesn't
+          const f = other.furn, rel = other.velocity.vsub(body.velocity).length();
+          if (performance.now() - f.thrownAt > 2500 || rel < 9 || (f.owner === this && performance.now() - f.thrownAt < 700)) return;
+          this.pendingHits.push({ body, impulse: other.velocity.scale(Math.min(other.mass, 4) * 1.4), point: other.position.clone(), rel, by: f.owner, kind: 'furn' });
+          return;
+        }
         if (!other.isPlant) return;
         if (other.owner === this && performance.now() - other.bornAt < 700) return;
         const rel = other.velocity.vsub(body.velocity).length();
@@ -480,11 +915,11 @@ class Character {
     const t = this.torso.position;
     this.root.x = THREE.MathUtils.clamp(t.x, -ARENA + 2.5, ARENA - 2.5);
     this.root.z = THREE.MathUtils.clamp(t.z, -ARENA + 2.5, ARENA - 2.5);
-    this.root.y = 0;
+    this.root.y = groundAt(this.root.x, this.root.z, t.y);   // whichever floor (or stair) they're lying on
     const inside = containerAt(t);
     if (at) { this.root.x = at.x; this.root.y = at.y; this.root.z = at.z; }        // e.g. stand up inside the bin
-    else if (inside) { this.root.x = inside.exit.x; this.root.z = inside.exit.z; } // climb out of it
-    else pushOutOfContainers(this.root);
+    else if (inside) { this.root.x = inside.exit.x; this.root.z = inside.exit.z; this.root.y = inside.base; } // climb out of it
+    else { pushOutOfObstacles(this.root); this.root.y = groundAt(this.root.x, this.root.z, this.root.y + 0.5); }
     this.root.yaw = yaw; this.phase = 0; this.amp = 0;
     const from = {};
     for (const n of NAMES) {
@@ -540,8 +975,8 @@ const npc = new Character({ colors: { skin: 0xcbc922, torso: 0x943639, legs: 0x0
 // spawn: [x, z, cam yaw]; you spawn facing the middle
 const PLAYER_DEFS = [
   { key: 'p1', colors: { skin: 0xf2c9a0, torso: 0x2a9d8f, legs: 0x3d405b }, group: GROUP.P1, spawn: [0, 20, 0], tracer: 0xffd34d },
-  { key: 'p2', colors: { skin: 0xe8b98f, torso: 0xe76f51, legs: 0x264653 }, group: GROUP.P2, spawn: [0, -20, Math.PI], tracer: 0xff9f4d },
-  { key: 'p3', colors: { skin: 0xd9a37a, torso: 0x8338ec, legs: 0x2b2d42 }, group: GROUP.P3, spawn: [-10, -2, -Math.PI / 2], tracer: 0xc4b5fd },
+  { key: 'p2', colors: { skin: 0xe8b98f, torso: 0xe76f51, legs: 0x264653 }, group: GROUP.P2, spawn: [14, -20, Math.PI], tracer: 0xff9f4d },
+  { key: 'p3', colors: { skin: 0xd9a37a, torso: 0x8338ec, legs: 0x2b2d42 }, group: GROUP.P3, spawn: [-10, 4, -Math.PI / 2], tracer: 0xc4b5fd },
   { key: 'p4', colors: { skin: 0xc68b59, torso: 0xffbe0b, legs: 0x1d3557 }, group: GROUP.P4, spawn: [10, 8, Math.PI / 2], tracer: 0x93c5fd },
 ];
 function makePlayer({ key, colors, group, spawn, tracer }, i) {
@@ -570,30 +1005,24 @@ const meshesExcept = (ch) => allChars().filter((c) => c !== ch).flatMap((c) => c
 
 /* ================= Blasters & plants (models) ================= */
 const dark = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.5 });
-const orange = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4, emissive: 0x552200 });
-const purple = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.4, emissive: 0x2a1060 });
-function makeBlaster(accent) {
+function makeBlaster() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.2, 0.55, 3, 0.04), dark);
-  const grip = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.26, 0.14, 3, 0.03), dark);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(0.16, 0.2, 0.55, 2, 0.012), dark);
+  const grip = new THREE.Mesh(new RoundedBoxGeometry(0.12, 0.26, 0.14, 2, 0.01), dark);
   grip.position.set(0, -0.18, 0.15); grip.rotation.x = -0.25;
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 16), accent);
-  barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.02, -0.38);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.3), accent);
-  fin.position.set(0, 0.13, 0);
-  g.add(body, grip, barrel, fin);
-  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.02, -0.52); g.add(muzzle);
+  g.add(body, grip);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.02, -0.3); g.add(muzzle);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return { g, muzzle };
 }
 const held = new THREE.Group();          // first-person held item
 camera.add(held);
 held.position.set(0.5, -0.4, -1.1);
-const pBlaster = makeBlaster(orange);
+const pBlaster = makeBlaster();
 pBlaster.g.rotation.y = 0.06;
 pBlaster.g.scale.setScalar(0.55);
 held.add(pBlaster.g);
-const nBlaster = makeBlaster(purple);    // NPC's blaster, in its right hand
+const nBlaster = makeBlaster();    // NPC's blaster, in its right hand
 nBlaster.g.scale.setScalar(1.6);
 nBlaster.g.rotation.x = -Math.PI / 2;
 nBlaster.g.position.set(0, -1.0, 0.1);
@@ -697,16 +1126,17 @@ function addFlash(p, size, color = 0xfff2a8) {
   effects.push({ update(dt) { life -= dt; const k = 1 - life / 0.15; m.scale.setScalar(size * (0.6 + k * 1.6)); m.material.opacity = Math.max(0, 1 - k); if (life <= 0) { scene.remove(m); m.material.dispose(); return false; } return true; } });
 }
 const WORDS = {
-  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
+  npc: { shot: ['OOF!', 'OW!', 'HEY!', 'RUDE!'], furn: ['WHO THREW A CHAIR?!', 'MY FURNITURE!', 'OOF!'], plant: ['BONK!', 'A PLANT?!', 'MY HEAD!'], grab: ['PUT ME DOWN!', 'WHOA!'], throw: ['WHEEEE!', 'AAAAAH!', 'NOT AGAIN!'], free: ['FREEDOM!', 'I\'M OUT!'],
          bin: ['LET ME OUT!', 'IT STINKS IN HERE!', 'NOT THE BIN!'], fridge: ['IT\'S FREEZING!', 'I\'M NOT A SNACK!', 'LET ME OUT!'],
          wardrobe: ['IT\'S DARK IN HERE!', 'NARNIA?!', 'LET ME OUT!'], freezer: ['SO COLD!', 'BRRRR!', 'I\'LL BE A POPSICLE!'],
+         bbq: ["IT'S HOT IN HERE!", "I'M NOT A SAUSAGE!", 'TOO SPICY!'], grilled: ['WELL DONE!', 'SIZZLE SIZZLE!', 'MEDIUM RARE!'],
          seen: ['I SAW THAT!', 'NICE TRY!', 'I CAN SEE YOU!'], boo: ['BOO!', 'SURPRISE!', 'GOTCHA!'],
          binned: ['IN THE BIN!', 'TAKE OUT THE TRASH!', 'BYE BYE!'], fridged: ['STAY FRESH!', 'CHILL OUT!', 'BEST BEFORE: NEVER!'],
          closeted: ['GO TO YOUR ROOM!', 'ENJOY NARNIA!', 'STAY IN THERE!'], frozen: ['FROZEN SOLID!', 'STAY COOL!', 'ICE TO MEET YOU!'] },
-  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
-         bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'] },
-  friend: { shot: ['OW!', 'HEY!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
-            bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'] },
+  you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+         bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'], bbq: ['HOT HOT HOT!', 'LET ME OUT!'] },
+  friend: { shot: ['OW!', 'HEY!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
+            bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'], bbq: ['OUCH, HOT!', 'NOT THE BARBECUE!'] },
 };
 function bubble(ch, kind) {
   const who = ch === npc ? 'npc' : ch === me.ch ? 'you' : 'friend';
@@ -738,6 +1168,7 @@ const WARN = {
   fridge: '😱 He\'s putting you in the fridge!',
   wardrobe: '😱 He\'s shoving you in the wardrobe!',
   freezer: '😱 He\'s taking you to the freezer!',
+  bbq: "🔥 He's putting you on the barbecue!",
   seen: '👀 He saw you hide! He\'s coming to drag you out!',
   ambush: '😱 BOO! He was hiding in there!',
 };
@@ -768,14 +1199,20 @@ function hitChar(ch, body, impulse, point, kind, launch, attacker) {
   if (ch === npc && brain.drag) releaseDrag(false);
   if (ch.hit(body, impulse, point, launch)) {
     fx.bubble(ch, kind);
-    if (kind === 'plant') fx.sfx('bonk');
+    if (kind === 'plant' || kind === 'furn') fx.sfx('bonk');
     if (attacker && attacker !== ch) { scores[attacker.key]++; updateScore(); }
   }
 }
 function resolveHit(hit) {
   let o = hit.object;
-  while (o && !o.userData.body && !o.userData.plant) o = o.parent;
-  return o ? (o.userData.body ? { body: o.userData.body } : { plant: o.userData.plant }) : {};
+  while (o && !o.userData.body && !o.userData.plant && !o.userData.furn) o = o.parent;
+  if (!o) return {};
+  return o.userData.body ? { body: o.userData.body } : o.userData.plant ? { plant: o.userData.plant } : { furn: o.userData.furn };
+}
+function shove(f, dir, point, by, k) {      // knock a piece of furniture about
+  const m = Math.min(f.body.mass, 8) * k;
+  f.body.applyImpulse(new CANNON.Vec3(dir.x * m, dir.y * m + m * 0.4, dir.z * m), toC(point).vsub(f.body.position));
+  f.owner = by; f.thrownAt = performance.now();
 }
 const raycaster = new THREE.Raycaster();
 
@@ -790,7 +1227,7 @@ function useCooldown(p, k) {
 function doShoot(p, origin, dir, muzzle) {
   if (p.ch.state !== 'up' || !useCooldown(p, 'blaster')) return;
   raycaster.set(origin, dir);
-  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...plants.map((x) => x.mesh), ...containerMeshes, ground], true)[0];
+  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...plants.map((x) => x.mesh), ...sceneryMeshes, ground], true)[0];
   const end = hit ? hit.point.clone() : origin.clone().addScaledVector(dir, 90);
   fx.tracer(muzzle, end, p.tracer); fx.flash(muzzle, 0.3); if (hit) fx.flash(end, 1);
   fx.sfx('pew', p.key);
@@ -803,12 +1240,12 @@ function doShoot(p, origin, dir, muzzle) {
             new CANNON.Vec3(h.x * 10, up, h.y * 10), p.ch);
   } else if (r.plant) {
     r.plant.body.applyImpulse(new CANNON.Vec3(dir.x * 14, dir.y * 14 + 6, dir.z * 14), toC(hit.point).vsub(r.plant.body.position));
-  }
+  } else if (r.furn) shove(r.furn, dir, hit.point, p.ch, 9);
 }
 function doThrow(p, origin, dir) {
   if (p.ch.state !== 'up' || !useCooldown(p, 'plant')) return;
   raycaster.set(origin, dir);
-  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...containerMeshes, ground], false)[0];
+  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...sceneryMeshes, ground], false)[0];
   const start = origin.clone().addScaledVector(dir, 1.4).add(new THREE.Vector3(0, -0.4, 0));
   const target = hit ? hit.point.clone() : start.clone().addScaledVector(dir, 30);
   const tch = hit && hit.object.userData.body ? hit.object.userData.body.char : null;
@@ -821,8 +1258,23 @@ function doThrow(p, origin, dir) {
 function doGrab(p, origin, dir) {
   if (p.ch.state !== 'up' || p.drag) return;
   raycaster.set(origin, dir);
-  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...containerMeshes], false)[0];
-  if (!hit || hit.distance > 14 || !hit.object.userData.body) return;      // the bin's walls and lid block grabs
+  const hit = raycaster.intersectObjects([...meshesExcept(p.ch), ...sceneryMeshes], false)[0];
+  if (!hit || hit.distance > 14) return;
+  const f = hit.object.userData.furn;
+  if (f) {                       // pick up furniture (heavier pieces just get dragged along the floor)
+    if (f.heldBy) return;
+    p.dragPlane.setFromNormalAndCoplanarPoint(dir.clone().negate(), hit.point);
+    p.joint.position.copy(toC(hit.point));
+    const c = new CANNON.PointToPointConstraint(f.body, f.body.pointToLocalFrame(toC(hit.point)), p.joint, new CANNON.Vec3(), 300 + f.body.mass * 45);
+    world.addConstraint(c);
+    p.drag = { c, body: f.body, ch: null, furn: f };
+    f.heldBy = p.ch;
+    p.history.length = 0;
+    p.history.push({ p: hit.point.clone(), t: performance.now() });
+    fx.sfx('grab');
+    return;
+  }
+  if (!hit.object.userData.body) return;      // walls, containers and lids block grabs
   const body = hit.object.userData.body, tch = body.char;
   const tEnt = entityOf(tch);
   if (tEnt) endDrag(tEnt);
@@ -856,30 +1308,41 @@ function updateDrag(p) {
 function endDrag(p) {
   if (!p.drag) return;
   world.removeConstraint(p.drag.c);
-  if (p.drag.ch.heldBy === p.ch) p.drag.ch.heldBy = null;
+  if (p.drag.ch && p.drag.ch.heldBy === p.ch) p.drag.ch.heldBy = null;
+  if (p.drag.furn && p.drag.furn.heldBy === p.ch) p.drag.furn.heldBy = null;
   p.drag = null;
 }
+// heavy furniture flies slower
+const furnSpeed = (f) => THREE.MathUtils.clamp(5 / f.body.mass, 0.3, 1);
 function releaseGrab(p) {
   if (!p.drag) return;
-  const { body: grabbed, ch } = p.drag;
+  const { body: grabbed, ch, furn } = p.drag;
   const h = p.history;
   if (h.length >= 2) {
     const a = h[0], b = h[h.length - 1];
     const v = b.p.clone().sub(a.p).divideScalar(Math.max((b.t - a.t) / 1000, 1 / 120));
     if (v.length() > 70) v.setLength(70);
-    for (const n of NAMES) { const bb = ch.parts[n].body; const k = bb === grabbed ? 1 : 0.7; bb.velocity.set(v.x * k, v.y * k, v.z * k); }
+    if (furn) { v.multiplyScalar(furnSpeed(furn)); grabbed.velocity.set(v.x, v.y, v.z); if (v.length() > 9) { furn.owner = p.ch; furn.thrownAt = performance.now(); } }
+    else for (const n of NAMES) { const bb = ch.parts[n].body; const k = bb === grabbed ? 1 : 0.7; bb.velocity.set(v.x * k, v.y * k, v.z * k); }
   }
   endDrag(p);
 }
 // charged throw: power 0..1 from how long right-click was held
 function throwHeld(p, dir, power) {
   if (!p.drag) return;
-  const { body: grabbed, ch } = p.drag;
-  const speed = 6 + power * 58;
+  const { body: grabbed, ch, furn } = p.drag;
+  const speed = (6 + power * 58) * (furn ? furnSpeed(furn) : 1);
   // throw along your aim with an upward arc (bigger when charged), so aiming down at them doesn't spike them into the floor
   const d = new THREE.Vector3(dir.x, Math.max(dir.y, -0.15) + 0.2 + power * 0.3, dir.z).normalize();
   const v = new CANNON.Vec3(d.x * speed, d.y * speed + 3, d.z * speed);
   endDrag(p);
+  if (furn) {
+    grabbed.velocity.copy(v);
+    grabbed.angularVelocity.set((Math.random() - 0.5) * 6 * power, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 6 * power);
+    furn.owner = p.ch; furn.thrownAt = performance.now();
+    fx.sfx('whoosh');
+    return;
+  }
   for (const n of NAMES) { const bb = ch.parts[n].body; const k = bb === grabbed ? 1 : 0.85; bb.velocity.set(v.x * k, v.y * k, v.z * k); }
   ch.torso.angularVelocity.set((Math.random() - 0.5) * 10 * power, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 10 * power);
   ch.stillTime = 0; ch.ragdollTime = 0;
@@ -889,7 +1352,16 @@ function throwHeld(p, dir, power) {
 
 /* ================= Containers (host) ================= */
 const REACH = 2.9;          // how close to its walls you must stand to open/close one
-const nearContainer = (r) => CONTAINERS.find((c) => { const [lx, lz] = toLocal(c, r.x, r.z); return Math.max(Math.abs(lx) - c.w / 2, Math.abs(lz) - c.d / 2) < REACH; });
+// the closest container within reach on your floor (how far you are from its walls)
+function nearContainer(r) {
+  let best = null, bestGap = REACH;
+  for (const c of CONTAINERS) {
+    if (Math.abs(r.y - c.base) > 3) continue;
+    const [lx, lz] = toLocal(c, r.x, r.z), gap = Math.max(Math.abs(lx) - c.w / 2, Math.abs(lz) - c.d / 2);
+    if (gap < bestGap) { bestGap = gap; best = c; }
+  }
+  return best;
+}
 const trappedIn = (ch) => (ch.state === 'ragdoll' ? CONTAINERS.find((c) => !c.open && inPos(c, ch.torso.position)) : null);
 const occupied = (c) => allChars().some((ch) => inPos(c, ch.torso.position));
 function setOpen(c, open) {
@@ -898,7 +1370,7 @@ function setOpen(c, open) {
   fx.sfx('clang');
   if (!open) for (const ch of allChars()) {
     const ent = entityOf(ch);
-    if (ch.state === 'ragdoll' && inPos(c, ch.torso.position) && !(ent && ent.hiding === c)) fx.bubble(ch, c.id);
+    if (ch.state === 'ragdoll' && inPos(c, ch.torso.position) && !(ent && ent.hiding === c)) fx.bubble(ch, c.talk);
   }
 }
 // pop someone straight inside a container as a ragdoll; a closing lid squashes in anything sticking out
@@ -956,11 +1428,11 @@ function updateContainers(dt) {
           const b = ch.parts[n].body, [lx, lz] = toLocal(c, b.position.x, b.position.z);
           if (Math.abs(lx) > c.w / 2 + 0.5) continue;
           if (c.kind === 'lid') {
-            if (b.position.y > c.h - 0.7 && Math.abs(lz) < c.d / 2 + 0.5) {
+            if (b.position.y > c.base + c.h - 0.7 && Math.abs(lz) < c.d / 2 + 0.5) {
               b.velocity.y = Math.min(b.velocity.y, -8);
-              b.position.y = Math.min(b.position.y, c.h - 0.5);
+              b.position.y = Math.min(b.position.y, c.base + c.h - 0.5);
             }
-          } else if (lz > c.d / 2 - 0.7 && b.position.y < c.h) {      // push them back in along the local z axis
+          } else if (lz > c.d / 2 - 0.7 && b.position.y < c.base + c.h) {      // push them back in along the local z axis
             const vz = b.velocity.x * c.sin + b.velocity.z * c.cos;
             if (vz > -8) { b.velocity.x += (-8 - vz) * c.sin; b.velocity.z += (-8 - vz) * c.cos; }
             if (lz > c.d / 2 - 0.5) { const k = c.d / 2 - 0.5 - lz; b.position.x += k * c.sin; b.position.z += k * c.cos; }
@@ -994,18 +1466,29 @@ function localMove(p, dt) {          // WASD / jump for this device's own player
   if (keys.has('KeyS') || keys.has('ArrowDown')) { mx -= fx_; mz -= fz; }
   if (keys.has('KeyD') || keys.has('ArrowRight')) { mx += rx; mz += rz; }
   if (keys.has('KeyA') || keys.has('ArrowLeft')) { mx -= rx; mz -= rz; }
+  let stick = 0;
+  if (touchStick.on) {                 // on-screen joystick (touch)
+    mx += rx * touchStick.x - fx_ * touchStick.y; mz += rz * touchStick.x - fz * touchStick.y;
+    stick = Math.hypot(touchStick.x, touchStick.y);
+  }
   const len = Math.hypot(mx, mz);
-  const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 13 : 8;
+  const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || stick > 0.92 ? 13 : 8;
   if (len > 0) { mx /= len; mz /= len; }
-  p.vel.x = mx * speed; p.vel.z = mz * speed;
+  const pace = touchStick.on && !keys.size ? Math.min(1, stick / 0.6) : 1;   // gentle push on the stick walks slowly
+  p.vel.x = mx * speed * pace; p.vel.z = mz * speed * pace;
+  const px = r.x, pz = r.z;
   r.x = THREE.MathUtils.clamp(r.x + p.vel.x * dt, -ARENA + 2.2, ARENA - 2.2);
   r.z = THREE.MathUtils.clamp(r.z + p.vel.z * dt, -ARENA + 2.2, ARENA - 2.2);
-  pushOutOfContainers(r);
-  if (keys.has('Space') && r.y <= 0) p.vel.y = 12;
+  pushOutOfObstacles(r);
+  if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }       // e.g. the side of the stairs
+  let floor = groundAt(r.x, r.z, r.y);
+  if (keys.has('Space') && r.y <= floor + 0.01) p.vel.y = 12;
+  if (p.vel.y <= 0 && r.y > floor && r.y - floor < 0.7) r.y = floor;   // walking down stairs
   p.vel.y -= GRAVITY * dt;
   r.y += p.vel.y * dt;
-  if (r.y <= 0) { r.y = 0; p.vel.y = 0; }
-  const moving = len > 0 && r.y === 0;
+  floor = groundAt(r.x, r.z, Math.max(r.y, floor));
+  if (r.y <= floor) { r.y = floor; p.vel.y = 0; }
+  const moving = len > 0 && r.y === floor;
   p.ch.amp += ((moving ? 0.8 : 0) - p.ch.amp) * Math.min(1, dt * 10);
   if (moving) p.ch.phase += dt * speed * 1.7;
   r.yaw = c.yaw + Math.PI;
@@ -1016,13 +1499,13 @@ function jumpOutStep(ch, c, from, t) {
   const k = Math.min(1, t / 0.8), r = ch.root;
   r.x = from.x + (c.exit.x - from.x) * k;
   r.z = from.z + (c.exit.z - from.z) * k;
-  r.y = from.y * (1 - k) + c.hop * 4 * k * (1 - k);
+  r.y = from.y * (1 - k) + c.base * k + c.hop * 4 * k * (1 - k);
   r.yaw = c.ry;                              // facing out of the front
   ch.amp = 0;
   const tuck = Math.sin(k * Math.PI);
   ch.applyPose(ch.pose({ armL: -2.8 * tuck, armR: -2.8 * tuck, legL: -1.1 * tuck, legR: -1.1 * tuck }));
   ch.carry.set((c.exit.x - from.x) / 0.8, 0, (c.exit.z - from.z) / 0.8);
-  if (k >= 1) { r.y = 0; return true; }
+  if (k >= 1) { r.y = c.base; return true; }
   return false;
 }
 function hostDrivePlayer(p, dt) {
@@ -1065,13 +1548,18 @@ function hostDrivePlayer(p, dt) {
 const brain = { mode: 'wander', timer: 3, t: 0, shots: 0, thrown: false, drag: null, panic: 0, target: null };
 const npcGoal = new THREE.Vector3();
 function pickWander() {
-  for (let i = 0; i < 10; i++) {
-    npcGoal.set((Math.random() * 2 - 1) * WANDER, 0, (Math.random() * 2 - 1) * WANDER);
-    const blocked = CONTAINERS.some((c) => { const [lx, lz] = toLocal(c, npcGoal.x, npcGoal.z); return Math.abs(lx) < c.w / 2 + 2 && Math.abs(lz) < c.d / 2 + 2; });
-    if (!blocked && Math.hypot(npcGoal.x - npc.root.x, npcGoal.z - npc.root.z) > 6) break;
+  for (let i = 0; i < 20; i++) {
+    const up = Math.random() < 0.2;    // now and then he wanders upstairs
+    if (up) npcGoal.set(THREE.MathUtils.lerp(HOUSE.x0, HOUSE.x1, Math.random()), HOUSE.up, THREE.MathUtils.lerp(HOUSE.z0, HOUSE.z1, Math.random()));
+    else npcGoal.set((Math.random() * 2 - 1) * WANDER, 0, (Math.random() * 2 - 1) * WANDER);
+    if (walkable(npcGoal.x, npcGoal.z, npcGoal.y) && Math.hypot(npcGoal.x - npc.root.x, npcGoal.z - npc.root.z) > 6) break;
   }
 }
-const posOf = (p) => (p.ch.state === 'up' ? new THREE.Vector3(p.ch.root.x, 0, p.ch.root.z) : toT(p.ch.torso.position).setY(0));
+// where someone is, including how high up (for which floor they're on)
+const posOf = (p) => (p.ch.state === 'up' ? new THREE.Vector3(p.ch.root.x, p.ch.root.y, p.ch.root.z)
+  : toT(p.ch.torso.position).setY(Math.max(0, p.ch.torso.position.y - 0.8)));
+// how far away, counting a different floor as much further
+const reachDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) + Math.abs(a.y - b.y) * 3;
 function endAttack() { brain.mode = 'wander'; brain.timer = 2.2 + Math.random() * 2.5; brain.target = null; brain.ambush = null; pickWander(); }
 const freeContainers = () => CONTAINERS.filter((c) => !occupied(c));
 function chooseAttack() {
@@ -1080,8 +1568,10 @@ function chooseAttack() {
   const target = cands[Math.floor(Math.random() * cands.length)];
   const P = posOf(target), dist = Math.hypot(P.x - npc.root.x, P.z - npc.root.z);
   const opts = [];
-  if (dist < 34) opts.push(['shoot', 4]);
-  if (dist > 5 && dist < 28) opts.push(['throw', 3.5]);
+  if (canSee(target)) {            // only shoot or throw at people he can actually see (not through floors and walls)
+    if (dist < 34) opts.push(['shoot', 4]);
+    if (dist > 5 && dist < 28) opts.push(['throw', 3.5]);
+  }
   opts.push(['chase', 2.5]);
   if (freeContainers().length) opts.push(['ambush', 1.5]);
   let r = Math.random() * opts.reduce((s, o) => s + o[1], 0);
@@ -1091,6 +1581,15 @@ function chooseAttack() {
   Object.assign(brain, { mode: pick, t: 0, shots: 0, thrown: false, target });
   fx.warn(pick, target.key);
 }
+// is there a clear line from the NPC's eyes to this player (walls, floors and containers block it)?
+const wallMeshes = [...houseMeshes, ...containerMeshes];
+function canSee(p) {
+  const eye = toT(npc.parts.head.body.position), to = toT(p.ch.torso.position).sub(eye);
+  const dist = to.length();
+  raycaster.set(eye, to.normalize());
+  const hit = raycaster.intersectObjects(wallMeshes, false)[0];
+  return !hit || hit.distance > dist;
+}
 // can the NPC see this spot? (close enough, roughly in front of him, and not behind another container)
 function npcSees(pos, c) {
   if (!settings.npcAI || npc.state !== 'up' || !['wander', 'shoot', 'throw', 'chase'].includes(brain.mode)) return false;
@@ -1099,7 +1598,7 @@ function npcSees(pos, c) {
   if (dist > 30) return false;
   if (Math.sin(npc.root.yaw) * to.x + Math.cos(npc.root.yaw) * to.z < 0.2 * Math.hypot(to.x, to.z)) return false;
   raycaster.set(toT(eye), to.normalize());
-  const hit = raycaster.intersectObjects(containerMeshes.filter((m) => !c.meshes.includes(m)), false)[0];
+  const hit = raycaster.intersectObjects(sceneryMeshes.filter((m) => !c.meshes.includes(m)), false)[0];
   return !hit || hit.distance > dist;
 }
 // he saw you hide: run over, yank the door open, pull you out and drag you off
@@ -1113,7 +1612,7 @@ function evict() {
   const p = brain.target, c = brain.evictFrom;
   setOpen(c, true);                         // found you (this also ends your hiding)
   const [x, z] = toWorld(c, 0, c.d / 2 + 1.2);
-  Object.assign(p.ch.root, { x, y: 1.2, z, yaw: c.ry });
+  Object.assign(p.ch.root, { x, y: c.base + 1.2, z, yaw: c.ry });
   p.ch.applyPose(p.ch.pose());
   for (const n of NAMES) p.ch.parts[n].body.velocity.set(c.sin * 4, 6, c.cos * 4);
   startDrag(p, c);                          // ...and maybe into a different container
@@ -1125,7 +1624,7 @@ function startAmbush() {
   Object.assign(brain, { mode: 'toHide', t: 0, hideIn: c, target: null });
 }
 function npcLurkPos(c) {    // crouched low inside (in a lid container his legs just go through the floor)
-  return { x: c.stand.x, y: c.kind === 'lid' ? c.h - 5.1 : c.t, z: c.stand.z, yaw: c.ry };
+  return { x: c.stand.x, y: c.base + (c.kind === 'lid' ? c.h - 5.1 : c.t), z: c.stand.z, yaw: c.ry };
 }
 function npcShoot() {
   const tgt = brain.target;
@@ -1133,7 +1632,7 @@ function npcShoot() {
   const aim = toT(tgt.ch.torso.position).add(new THREE.Vector3((Math.random() - 0.5) * 1.8, (Math.random() - 0.5) * 2.2, (Math.random() - 0.5) * 1.8));
   const dir = aim.clone().sub(from).normalize();
   raycaster.set(from, dir);
-  const hit = raycaster.intersectObjects([...meshesExcept(npc), ...plants.map((p) => p.mesh), ...containerMeshes, ground], true)[0];
+  const hit = raycaster.intersectObjects([...meshesExcept(npc), ...plants.map((p) => p.mesh), ...sceneryMeshes, ground], true)[0];
   const end = hit ? hit.point.clone() : from.clone().addScaledVector(dir, 90);
   fx.tracer(from, end, 0xc084fc); fx.flash(from, 0.5, 0xe9d5ff); if (hit) fx.flash(end, 1, 0xe9d5ff);
   fx.sfx('pew2');
@@ -1144,7 +1643,7 @@ function npcShoot() {
     hitChar(r.body.char, r.body, new CANNON.Vec3(dir.x * 30, dir.y * 30 + 8, dir.z * 30), toC(hit.point), 'shot', new CANNON.Vec3(h.x * 9, 24, h.y * 9), npc);
   } else if (r.plant) {
     r.plant.body.applyImpulse(new CANNON.Vec3(dir.x * 14, dir.y * 14 + 6, dir.z * 14), toC(hit.point).vsub(r.plant.body.position));
-  }
+  } else if (r.furn) shove(r.furn, dir, hit.point, npc, 7);
 }
 function npcThrow() {
   const tgt = brain.target;
@@ -1172,7 +1671,7 @@ function startDrag(victim, avoid) {
     ? { c, t: 4 + Math.hypot(into.front.x - npc.root.x, into.front.z - npc.root.z) / 7, goal: into.front.clone(), victim, into }
     : { c, t: 2.8, goal: away, victim };
   brain.mode = 'dragging';
-  fx.warn(into ? into.id : 'drag', victim.key);
+  fx.warn(into ? into.talk : 'drag', victim.key);
   fx.sfx('grab');
 }
 function tossInto(k) {
@@ -1203,10 +1702,14 @@ function npcMove(dt, goal, speed, faceYaw, over) {
   const turn = (target, rate) => { let d = target - r.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); r.yaw += THREE.MathUtils.clamp(d, -rate * dt, rate * dt); };
   let moving = false;
   if (goal && speed > 0) {
-    turn(Math.atan2(goal.x - r.x, goal.z - r.z), 6);
+    const g = routeGoal(r, goal);          // through a doorway / round the house if needed
+    turn(Math.atan2(g.x - r.x, g.z - r.z), 6);
+    const px = r.x, pz = r.z;
     r.x = THREE.MathUtils.clamp(r.x + Math.sin(r.yaw) * speed * dt, -ARENA + 2.5, ARENA - 2.5);
     r.z = THREE.MathUtils.clamp(r.z + Math.cos(r.yaw) * speed * dt, -ARENA + 2.5, ARENA - 2.5);
-    pushOutOfContainers(r);
+    pushOutOfObstacles(r);
+    if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }
+    r.y = groundAt(r.x, r.z, r.y);       // up and down the stairs
     moving = true;
   } else if (faceYaw !== null) turn(faceYaw, 8);
   npc.amp += ((moving ? 0.8 : 0) - npc.amp) * Math.min(1, dt * 10);
@@ -1262,7 +1765,7 @@ function updateNpc(dt) {
     npc.amp = 0; npc.carry.setZero();
     npc.applyPose(npc.pose({ armL: -0.3, armR: -0.3 }));
     const reach = Math.max(c.w, c.d) / 2 + 6;
-    const victim = players().find((p) => p.ch.state === 'up' && Math.hypot(p.ch.root.x - c.x, p.ch.root.z - c.z) < reach);
+    const victim = players().find((p) => p.ch.state === 'up' && Math.abs(p.ch.root.y - c.base) < 3 && Math.hypot(p.ch.root.x - c.x, p.ch.root.z - c.z) < reach);
     if (victim || c.open || brain.t > 25) {          // someone came close (or opened it): BOO!
       setOpen(c, true);
       Object.assign(brain, { mode: 'jumpout', t: 0, from: { ...npc.root }, jc: c, ambush: victim || null });
@@ -1275,7 +1778,7 @@ function updateNpc(dt) {
   if (brain.target && !brain.target.ch.active) { if (brain.drag) releaseDrag(false); endAttack(); }
   const tgt = brain.target;
   const P = tgt ? posOf(tgt) : null;
-  const dist = P ? Math.hypot(P.x - npc.root.x, P.z - npc.root.z) : 99;
+  const dist = P ? reachDist(P, npc.root) : 99;
   const faceYaw = P ? Math.atan2(P.x - npc.root.x, P.z - npc.root.z) : null;
   const tgtUp = tgt && tgt.ch.state === 'up';
   let goal = null, speed = 0, face = null, over = null;
@@ -1284,7 +1787,7 @@ function updateNpc(dt) {
       const c = brain.hideIn;
       goal = c.front; speed = 9; brain.t += dt;
       if (occupied(c) || brain.t > 10) { endAttack(); break; }
-      if (Math.hypot(c.front.x - npc.root.x, c.front.z - npc.root.z) < 1.6) { setOpen(c, true); Object.assign(brain, { mode: 'climbIn', t: 0 }); }
+      if (reachDist(c.front, npc.root) < 1.6) { setOpen(c, true); Object.assign(brain, { mode: 'climbIn', t: 0 }); }
       break;
     }
     case 'climbIn': {   // in he goes, and pulls it shut
@@ -1303,13 +1806,13 @@ function updateNpc(dt) {
       const c = brain.evictFrom;
       goal = c.front; speed = 11; over = { armR: -1.4 }; brain.t += dt;
       if (tgt.hiding !== c || brain.t > 9) { endAttack(); break; }
-      if (Math.hypot(c.front.x - npc.root.x, c.front.z - npc.root.z) < 1.8) evict();
+      if (reachDist(c.front, npc.root) < 1.8) evict();
       break;
     }
     case 'dragging': {
       const d = brain.drag;
       d.t -= dt; goal = d.goal; speed = 7; over = { armR: 0.9 };
-      const there = Math.hypot(d.goal.x - npc.root.x, d.goal.z - npc.root.z) < 1.6;
+      const there = reachDist(d.goal, npc.root) < 1.6;
       if (d.into && there) { tossInto(d.into); break; }
       if (d.t <= 0 || there) releaseDrag(true);
       break;
@@ -1326,13 +1829,13 @@ function updateNpc(dt) {
     }
     case 'shoot':
       face = faceYaw; over = { armR: -1.55 }; brain.t += dt;
-      if (brain.shots < 3 && brain.t > 0.6 + brain.shots * 0.25) { npcShoot(); brain.shots++; }
+      if (brain.shots < 3 && brain.t > 0.6 + brain.shots * 0.25) { if (canSee(tgt)) npcShoot(); brain.shots++; }
       if (brain.t > 1.5 || (!tgtUp && brain.shots > 0)) endAttack();
       break;
     case 'throw':
       face = faceYaw; brain.t += dt;
       over = { armR: brain.t < 0.45 ? 2.3 : -1.2 };
-      if (brain.t >= 0.45 && !brain.thrown) { npcThrow(); brain.thrown = true; }
+      if (brain.t >= 0.45 && !brain.thrown) { if (canSee(tgt)) npcThrow(); brain.thrown = true; }
       if (brain.t > 0.9) endAttack();
       break;
     case 'chase':   // runs at its target whether they're standing or lying ragdolled
@@ -1342,7 +1845,7 @@ function updateNpc(dt) {
       break;
     default: { // wander
       goal = npcGoal; speed = brain.panic > 0 ? 10 : 6;
-      if (Math.hypot(npcGoal.x - npc.root.x, npcGoal.z - npc.root.z) < 1.5) pickWander();
+      if (reachDist(npcGoal, npc.root) < 1.5) pickWander();
       for (const p of players()) if (p.ch.state === 'up') p.downChecked = false;
       const downed = players().find((p) => p.ch.state === 'ragdoll' && !p.ch.heldBy && !p.downChecked && !containerAt(p.ch.torso.position));
       if (downed) {
@@ -1549,7 +2052,8 @@ function snapshot() {
   const pl = plants.map((p) => { const b = p.body; return [p.id, r3(b.position.x), r3(b.position.y), r3(b.position.z), r3(b.quaternion.x), r3(b.quaternion.y), r3(b.quaternion.z), r3(b.quaternion.w)]; });
   return { t: 's', c: chars, p: pl, sc: SCORE_KEYS.map((k) => scores[k]),
            lids: CONTAINERS.map((c) => [c.open ? 1 : 0, r3(c.angle)]), hd: PLAYERS.map((p) => CONTAINERS.indexOf(p.hiding)),
-           ai: settings.npcAI ? 1 : 0, ev: outbox.splice(0) };
+           ai: settings.npcAI ? 1 : 0, ev: outbox.splice(0), dr: doorLeaves.map((l) => r3(l.angle)),
+           fu: FURNITURE.map(({ body: b }) => [r3(b.position.x), r3(b.position.y), r3(b.position.z), r3(b.quaternion.x), r3(b.quaternion.y), r3(b.quaternion.z), r3(b.quaternion.w)]) };
 }
 
 /* guest side */
@@ -1596,6 +2100,13 @@ function onClientData(m) {
   if (Array.isArray(m.lids)) m.lids.forEach((a, i) => { const c = CONTAINERS[i]; if (c && Array.isArray(a)) { c.open = !!a[0]; c.angle = a[1]; placeDoor(c); } });
   if (Array.isArray(m.hd)) PLAYERS.forEach((p, i) => { p.hiding = CONTAINERS[m.hd[i]] || null; });
   if (settings.npcAI !== !!m.ai) { settings.npcAI = !!m.ai; updateNpcBtn(); }
+  if (Array.isArray(m.dr)) m.dr.forEach((a, i) => { const l = doorLeaves[i]; if (l && l.angle !== a) { l.angle = a; placeLeaf(l); } });
+  if (Array.isArray(m.fu)) m.fu.forEach((a, i) => {
+    const f = FURNITURE[i];
+    if (!f || !a) return;
+    if (!f.net) { f.net = { p: new THREE.Vector3(a[0], a[1], a[2]), q: new THREE.Quaternion(a[3], a[4], a[5], a[6]) }; f.mesh.position.copy(f.net.p); f.mesh.quaternion.copy(f.net.q); }
+    f.net.p.set(a[0], a[1], a[2]); f.net.q.set(a[3], a[4], a[5], a[6]);
+  });
   [npc, ...PLAYERS.map((p) => p.ch)].forEach((ch, i) => {
     const a = m.c[i];
     if (!a) return;
@@ -1642,6 +2153,7 @@ function clientInterpolate(dt) {
     NAMES.forEach((n, i) => { const t = ch.net[i], mesh = ch.parts[n].mesh; mesh.position.lerp(t.p, k); mesh.quaternion.slerp(t.q, k); });
   }
   for (const [, cp] of clientPlants) { cp.mesh.position.lerp(cp.p, k); cp.mesh.quaternion.slerp(cp.q, k); }
+  for (const f of FURNITURE) if (f.net) { f.mesh.position.lerp(f.net.p, k); f.mesh.quaternion.slerp(f.net.q, k); }
 }
 
 /* ================= Input ================= */
@@ -1674,6 +2186,7 @@ function setTool(t) {
   heldPlant.visible = t === 'plant';
   hand.visible = t === 'grab';
   handMat.color.setHex(me.skin);       // your own skin colour
+  document.getElementById('tFire').textContent = { blaster: '🔫', plant: '🪴', grab: '✋' }[t];
   updateHint();
 }
 for (const b of document.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
@@ -1712,41 +2225,117 @@ function look(dx, dy, s) {
   cam.yaw -= dx * s;
   cam.pitch = THREE.MathUtils.clamp(cam.pitch - dy * s, -1.45, 1.45);
 }
-window.addEventListener('pointerdown', (e) => {
-  if (e.target !== renderer.domElement) return;
-  if (e.button === 2 || e.button === 1) { looking = { x: e.clientX, y: e.clientY }; return; }
-  if (e.button !== 0) return;
-  setPointer(e);
-  if (e.pointerType !== 'touch') tryLock();
-  if (e.pointerType === 'touch' && (tool === 'grab' || me.ch.state !== 'up')) {
-    aimRay();
-    if (me.ch.state !== 'up' || !raycaster.intersectObjects(meshesExcept(me.ch), false).length) { looking = { x: e.clientX, y: e.clientY }; return; }
-  }
+// use the current tool (left click, or the fire button on touch)
+function useTool() {
   if (tool === 'grab') actGrab();
   else if (tool === 'blaster') { actShoot(); firing = true; nextFire = performance.now() + 140; }
   else actThrow();
+}
+let toolPointer = null;          // the touch that's using the tool, so other fingers lifting don't let go
+window.addEventListener('pointerdown', (e) => {
+  if (e.target !== renderer.domElement) return;
+  if (e.pointerType === 'touch') {           // touch: the screen is for looking; the buttons do the rest
+    enableTouch();
+    looking = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    return;
+  }
+  if (e.button === 2 || e.button === 1) { looking = { x: e.clientX, y: e.clientY, id: e.pointerId }; return; }
+  if (e.button !== 0) return;
+  setPointer(e);
+  tryLock();
+  useTool();
 }, { capture: true });
 window.addEventListener('pointermove', (e) => {
   if (isLocked()) { look(e.movementX || 0, e.movementY || 0, 0.0025); return; }
-  if (looking) { look(e.clientX - looking.x, e.clientY - looking.y, 0.004); looking.x = e.clientX; looking.y = e.clientY; return; }
-  setPointer(e);
+  if (looking && (e.pointerType !== 'touch' || e.pointerId === looking.id)) {
+    look(e.clientX - looking.x, e.clientY - looking.y, e.pointerType === 'touch' ? 0.006 : 0.004);
+    looking.x = e.clientX; looking.y = e.clientY;
+    return;
+  }
+  if (!touchUI) setPointer(e);
 });
-window.addEventListener('pointerup', (e) => { if (looking && (e.button !== 0 || e.pointerType === 'touch')) { looking = null; return; } actRelease(); });
+window.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'touch') {
+    if (looking && e.pointerId === looking.id) looking = null;
+    if (e.pointerId === toolPointer) { toolPointer = null; actRelease(); }
+    return;
+  }
+  if (looking && e.button !== 0) { looking = null; return; }
+  actRelease();
+});
 // right-click while holding someone charges a throw (mouse events, because a second button
 // pressed during a pointer drag doesn't fire pointerdown)
 const chargeEl = document.getElementById('charge'), chargeFill = chargeEl.querySelector('i');
 function chargePower() { return chargeStart ? Math.min(1, (performance.now() - chargeStart) / (CHARGE_TIME * 1000)) : 0; }
-window.addEventListener('mousedown', (e) => {
-  if (e.button === 2 && tool === 'grab' && grabHeld && me.ch.state === 'up') { chargeStart = performance.now(); looking = null; e.preventDefault(); }
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button !== 2 || !chargeStart) return;
+function startCharge() { if (tool === 'grab' && grabHeld && me.ch.state === 'up') { chargeStart = performance.now(); return true; } return false; }
+function releaseCharge() {
+  if (!chargeStart) return;
   const pw = chargePower();
   chargeStart = 0;
   const d = aimRay().direction.clone();
   if (net.role === 'client') netSend({ t: 'th', d: d.toArray(), pw });
   else throwHeld(me, d, pw);
+}
+window.addEventListener('mousedown', (e) => { if (e.button === 2 && startCharge()) { looking = null; e.preventDefault(); } });
+window.addEventListener('mouseup', (e) => { if (e.button === 2) releaseCharge(); });
+function pressUse() { if (net.role === 'client') netSend({ t: 'bin' }); else useContainer(me); }      // E
+function pressHide() { if (net.role === 'client') netSend({ t: 'hide' }); else hide(me); }          // F
+
+/* ================= Touch controls ================= */
+// left: a joystick to walk (push it all the way to sprint); drag anywhere else to look;
+// right: buttons to use your tool, jump, E, F and (while holding someone) charge a throw
+let touchUI = false;
+const touchStick = { on: false, x: 0, y: 0, id: null };
+function enableTouch() {
+  if (touchUI) return;
+  touchUI = true;
+  document.body.classList.add('touch');
+  pointerNdc.set(0, 0);                      // aim with the crosshair in the middle
+  updateHint();
+}
+window.addEventListener('touchstart', enableTouch, { passive: true, capture: true });
+const stickEl = document.getElementById('stick'), knobEl = document.getElementById('knob');
+function moveStick(e) {
+  const r = stickEl.getBoundingClientRect(), R = r.width / 2;
+  let dx = (e.clientX - r.left - R) / R, dy = (e.clientY - r.top - R) / R;
+  const l = Math.hypot(dx, dy);
+  if (l > 1) { dx /= l; dy /= l; }
+  touchStick.x = dx; touchStick.y = dy;
+  knobEl.style.transform = `translate(${dx * R * 0.6}px, ${dy * R * 0.6}px)`;
+}
+stickEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault(); enableTouch();
+  stickEl.setPointerCapture(e.pointerId);
+  Object.assign(touchStick, { on: true, id: e.pointerId });
+  moveStick(e);
 });
+stickEl.addEventListener('pointermove', (e) => { if (e.pointerId === touchStick.id) moveStick(e); });
+const endStick = (e) => {
+  if (e.pointerId !== touchStick.id) return;
+  Object.assign(touchStick, { on: false, x: 0, y: 0, id: null });
+  knobEl.style.transform = '';
+};
+stickEl.addEventListener('pointerup', endStick);
+stickEl.addEventListener('pointercancel', endStick);
+function holdButton(id, down, up) {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation(); enableTouch();
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    el.classList.add('on');
+    down(e);
+  });
+  const end = () => { if (!el.classList.contains('on')) return; el.classList.remove('on'); if (up) up(); };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  return el;
+}
+const tFire = holdButton('tFire', (e) => { pointerNdc.set(0, 0); toolPointer = e.pointerId; useTool(); }, () => { toolPointer = null; actRelease(); });
+holdButton('tJump', () => keys.add('Space'), () => keys.delete('Space'));
+holdButton('tE', () => pressUse());
+holdButton('tF', () => pressHide());
+const tThrow = holdButton('tThrow', () => startCharge(), () => releaseCharge());
 const promptEl = document.getElementById('prompt');
 let promptHtml = '';
 function updateContainerPrompt() {
@@ -1772,16 +2361,20 @@ function updateChargeUI() {
   if (chargeStart && (!grabHeld || me.ch.state !== 'up')) chargeStart = 0;   // let go or got knocked down
   chargeEl.style.display = chargeStart ? 'block' : 'none';
   if (chargeStart) chargeFill.style.width = (chargePower() * 100) + '%';
+  tThrow.hidden = !(tool === 'grab' && grabHeld && me.ch.state === 'up');
 }
-window.addEventListener('pointercancel', () => { looking = null; actRelease(); });
+window.addEventListener('pointercancel', (e) => {
+  if (looking && e.pointerId === looking.id) looking = null;
+  if (e.pointerType !== 'touch' || e.pointerId === toolPointer) { toolPointer = null; actRelease(); }
+});
 window.addEventListener('blur', () => keys.clear());
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;            // typing a room code
   keys.add(e.code);
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
-  if (e.code === 'KeyE' && !e.repeat) { if (net.role === 'client') netSend({ t: 'bin' }); else useContainer(me); }
-  if (e.code === 'KeyF' && !e.repeat) { if (net.role === 'client') netSend({ t: 'hide' }); else hide(me); }
+  if (e.code === 'KeyE' && !e.repeat) pressUse();
+  if (e.code === 'KeyF' && !e.repeat) pressHide();
   if (e.code === 'KeyN' && !e.repeat) toggleNpc();
   if (e.key === '1') setTool('blaster');
   else if (e.key === '2') setTool('plant');
@@ -1797,6 +2390,8 @@ function reset() {
   npc.reset(20, 0, -Math.PI / 2);
   Object.assign(brain, { mode: 'wander', timer: 3, panic: 0, target: null, jumpOut: null });
   for (const c of CONTAINERS) { Object.assign(c, { open: false, angle: LID_CLOSED, pushes: 0 }); c.trap.clear(); placeDoor(c); }
+  for (const f of FURNITURE) { f.heldBy = null; placeFurniture(f); }
+  for (const l of doorLeaves) { l.angle = 0; placeLeaf(l); }
   for (const k of SCORE_KEYS) scores[k] = 0;
   pickWander();
   for (const p of players()) spawnPlayer(p);
@@ -1812,6 +2407,7 @@ function hostFrame(dt, now) {
   // this device's aim ray (used for dragging)
   const ray = aimRay(); me.ray.o.copy(ray.origin); me.ray.d.copy(ray.direction);
   updateContainers(dt);
+  updateHouseDoors(dt);
   for (const p of players()) hostDrivePlayer(p, dt);
   updateNpc(dt);
   for (const p of players()) updateDrag(p);
@@ -1820,12 +2416,16 @@ function hostFrame(dt, now) {
     if (!ch.pendingHits.length) continue;
     const h = ch.pendingHits.reduce((a, b) => (b.rel > a.rel ? b : a));
     ch.pendingHits.length = 0;
-    if (ch.state !== 'ragdoll') hitChar(ch, h.body, h.impulse, h.point, 'plant', null, h.by);
-    else if (now - ch.lastHitAt > 300) hitChar(ch, h.body, h.impulse.scale(0.3), h.point, 'plant', null, h.by);
+    if (ch.state !== 'ragdoll') hitChar(ch, h.body, h.impulse, h.point, h.kind || 'plant', null, h.by);
+    else if (now - ch.lastHitAt > 300) hitChar(ch, h.body, h.impulse.scale(0.3), h.point, h.kind || 'plant', null, h.by);
   }
   for (const p of plants) {
     if (now - p.body.bornAt > 700) p.body.collisionFilterMask = GROUP.WORLD | ALL_CHARS;   // now it can hit anybody
     p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion);
+  }
+  for (const f of FURNITURE) {
+    if (!Number.isFinite(f.body.position.x) || f.body.position.y < -20) placeFurniture(f);
+    f.mesh.position.copy(f.body.position); f.mesh.quaternion.copy(f.body.quaternion);
   }
   for (const ch of allChars()) ch.sync();
   for (const ch of allChars()) { const t = ch.torso.position; if (!Number.isFinite(t.x) || t.y < -20) { reset(); break; } }
@@ -1862,6 +2462,8 @@ function frame() {
   updateCooldownUI(now);
   if (me.ch.state + !!me.hiding !== lastMeState) { lastMeState = me.ch.state + !!me.hiding; updateHint(); }
   updateCamera(dt);
+  // the roof hides while you're indoors (or the camera is) so you can see what's going on
+  roof.visible = !(inHouse(me.ch.state === 'up' ? me.ch.root : me.ch.parts.torso.mesh.position, 0.5) || (inHouse(camera.position, 0.5) && camera.position.y < ROOF_Y + 2));
   held.position.z += (-1.1 - held.position.z) * Math.min(1, dt * 14);
   updateChargeUI();
   updateContainerPrompt();
