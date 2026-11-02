@@ -33,19 +33,25 @@
             padding: 8px 16px; border-radius: 10px; font-size: 15px; box-shadow: 0 3px 12px rgba(0,0,0,.25); pointer-events: none; display: none; white-space: nowrap; }
   #prompt kbd { font: 800 13px ui-monospace, monospace; background: #111827; color: #fff; border-radius: 5px; padding: 2px 7px; margin: 0 2px; }
   #prompt.stuck { background: #dc2626; color: #fff; }
-  #hint { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: rgba(17,24,39,.75);
-          color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; white-space: nowrap; pointer-events: none; }
+  /* controller buttons in the prompts, coloured like the real ones */
+  #prompt kbd.pad { display: inline-block; min-width: 1.1em; text-align: center; border-radius: 999px; padding: 2px 6px; }
+  #prompt kbd.xbox.f0 { background: #16a34a; } #prompt kbd.xbox.f1 { background: #dc2626; }
+  #prompt kbd.xbox.f2 { background: #2563eb; } #prompt kbd.xbox.f3 { background: #ca8a04; }
+  #prompt kbd.ps.f0 { color: #93c5fd; } #prompt kbd.ps.f1 { color: #fca5a5; }
+  #prompt kbd.ps.f2 { color: #f9a8d4; } #prompt kbd.ps.f3 { color: #5eead4; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; display: none; }
   #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.6); border-radius: 1px; }
   #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
   #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
   body.locked.fp #crosshair { display: block; }
   body.locked canvas { cursor: none; }
+  /* playing on a controller: aim with the crosshair in the middle */
+  body.pad.fp #crosshair { display: block; }
+  body.pad canvas { cursor: none; }
   /* touch controls: shown once you touch the screen */
   #touch { display: none; }
   body.touch #touch { display: block; }
   body.touch.fp #crosshair { display: block; }
-  body.touch #hint { display: none; }
   body.touch #prompt { bottom: 190px; white-space: normal; text-align: center; max-width: calc(100% - 48px); }
   body.touch #score { top: 64px; bottom: auto; right: 16px; transform: none; }
   #stick { position: fixed; left: 28px; bottom: 28px; width: 140px; height: 140px; border-radius: 50%; touch-action: none;
@@ -55,7 +61,8 @@
   .tb { position: fixed; width: 60px; height: 60px; padding: 0; border-radius: 50%; font: 800 20px system-ui, sans-serif;
         background: rgba(17,24,39,.6); touch-action: none; -webkit-tap-highlight-color: transparent; }
   .tb.on { background: #f59e0b; color: #1f2937; }
-  #tFire { right: 24px; bottom: 28px; width: 88px; height: 88px; font-size: 32px; }
+  #tFire { right: 24px; bottom: 28px; width: 88px; height: 88px; font-size: 17px; }
+  #tThrow, #tScope { font-size: 13px; }
   #tJump { right: 128px; bottom: 24px; }
   #tE { right: 24px; bottom: 132px; }
   #tF { right: 98px; bottom: 112px; }
@@ -69,11 +76,21 @@
   #scope::after { width: 2px; height: 76vmin; transform: translate(-50%, -50%); }
   body.scoped #scope { display: block; }
   body.scoped #crosshair { display: none !important; }
-  #mp { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
-  #mp.open { display: flex; }
-  #mp .card { background: #fff; color: #111827; border-radius: 16px; padding: 20px; width: min(420px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.3); }
-  #mp h2 { margin: 0 0 6px; font-size: 20px; }
-  #mp p { margin: 0 0 14px; color: #4b5563; font-size: 14px; line-height: 1.45; }
+  #mp, #help { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
+  #mp.open, #help.open { display: flex; }
+  #mp .card, #help .card { background: #fff; color: #111827; border-radius: 16px; padding: 20px; width: min(420px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  #mp h2, #help h2 { margin: 0 0 6px; font-size: 20px; }
+  #mp p, #help p { margin: 0 0 14px; color: #4b5563; font-size: 14px; line-height: 1.45; }
+  /* how to play */
+  #help .card { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; }
+  #help h3 { margin: 16px 0 6px; font-size: 15px; }
+  #help table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 4px; }
+  #help th { text-align: left; color: #6b7280; font-weight: 700; padding: 4px 8px 4px 0; border-bottom: 2px solid #e5e7eb; }
+  #help td { padding: 5px 8px 5px 0; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  #help td:first-child { color: #374151; }
+  #help kbd { font: 700 12px ui-monospace, monospace; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 5px; padding: 1px 6px; }
+  #help ul { margin: 0 0 4px; padding-left: 18px; font-size: 13px; color: #374151; line-height: 1.5; }
+  #help .foot { display: flex; justify-content: flex-end; margin-top: 14px; }
   #mp .row { display: flex; gap: 8px; margin-bottom: 12px; }
   #mp input { flex: 1; min-width: 0; font: 700 18px ui-monospace, monospace; letter-spacing: 4px; text-transform: uppercase;
               padding: 8px 12px; border: 2px solid #d1d5db; border-radius: 10px; }
@@ -81,8 +98,8 @@
   #mpStatus { background: #f3f4f6; border-radius: 10px; padding: 10px 12px; font-size: 14px; color: #111827; min-height: 20px; margin-bottom: 12px; }
   #mpStatus b { font: 800 22px ui-monospace, monospace; letter-spacing: 4px; color: #2563eb; }
   #mp .foot { display: flex; justify-content: space-between; gap: 8px; }
-  #mp .ghost { background: #e5e7eb; color: #111827; box-shadow: none; }
-  #mp .ghost:hover { background: #d1d5db; }
+  #mp .ghost, #help .ghost { background: #e5e7eb; color: #111827; box-shadow: none; }
+  #mp .ghost:hover, #help .ghost:hover { background: #d1d5db; }
   #mp #inviteIn, #mp details input { font: 13px ui-monospace, monospace; letter-spacing: 0; text-transform: none; padding: 8px 10px; }
   #mp details { margin: 0 0 12px; font-size: 13px; color: #374151; }
   #mp details summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
@@ -99,7 +116,6 @@
     button kbd { display: none; }
     #ui { max-width: 100%; }
     #score { top: auto; bottom: 64px; right: 50%; transform: translateX(50%); white-space: nowrap; }
-    #hint { white-space: normal; text-align: center; width: calc(100% - 64px); border-radius: 14px; }
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -115,31 +131,41 @@
 </head>
 <body class="fp">
 <div id="ui">
-  <button data-tool="blaster" class="active">🔫 Blaster<kbd>1</kbd><span class="cd"></span></button>
-  <button data-tool="plant">🪴 Plant<kbd>2</kbd><span class="cd"></span></button>
-  <button data-tool="grab">✋ Grab<kbd>3</kbd></button>
-  <button data-tool="sniper">🎯 Sniper<kbd>4</kbd><span class="cd"></span></button>
+  <button data-tool="blaster" class="active">Blaster<kbd>1</kbd><span class="cd"></span></button>
+  <button data-tool="plant">Plant<kbd>2</kbd><span class="cd"></span></button>
+  <button data-tool="grab">Grab<kbd>3</kbd></button>
+  <button data-tool="sniper">Sniper<kbd>4</kbd><span class="cd"></span></button>
   <button id="reset">Reset<kbd>R</kbd></button>
-  <button id="npcBtn">🤖 NPC: On<kbd>N</kbd></button>
-  <button id="mpBtn" class="mp">👥 Play with friends</button>
+  <button id="npcBtn">NPC: On<kbd>N</kbd></button>
+  <button id="mapBtn" title="Switch maps: town, sky, tube (resets the match)">Map: Town<kbd>M</kbd></button>
+  <button id="padBtn" hidden title="Controller button layout (click to change)">Controller: Auto</button>
+  <button id="mpBtn" class="mp">Play with friends</button>
+  <button id="helpBtn">How to play<kbd>H</kbd></button>
 </div>
 <div id="score"></div>
 <div id="alert"></div>
-<div id="hint"></div>
 <div id="prompt"></div>
 <div id="crosshair"></div>
 <div id="scope"></div>
 <div id="cdbar"><i></i></div>
 <div id="touch">
   <div id="stick"><div id="knob"></div></div>
-  <button id="tFire" class="tb big">🔫</button>
+  <button id="tFire" class="tb big">Shoot</button>
   <button id="tJump" class="tb">⤒</button>
   <button id="tE" class="tb">E</button>
   <button id="tF" class="tb">F</button>
-  <button id="tThrow" class="tb" hidden>💪</button>
-  <button id="tScope" class="tb" hidden>🔭</button>
+  <button id="tThrow" class="tb" hidden>Throw</button>
+  <button id="tScope" class="tb" hidden>Scope</button>
 </div>
 <div id="charge"><span>THROW POWER</span><div><i></i></div></div>
+<div id="help">
+  <div class="card">
+    <h2>How to play</h2>
+    <p>Knock everyone over with a blaster, flying potted plants, a sniper rifle and your bare hands. Anyone who gets hit goes full ragdoll and gets back up on their own.</p>
+    <div id="helpBody"></div>
+    <div class="foot"><button id="helpClose" class="ghost">Close</button></div>
+  </div>
+</div>
 <div id="mp">
   <div class="card">
     <h2>Play with friends</h2>
@@ -211,7 +237,7 @@ function peerOptions() {
 const ROOM_PREFIX = 'ragdoll-showdown-v1-';
 // bump this whenever you publish changes: it's shown in the multiplayer dialog, and guests are warned if the host's differs
 // (a device can keep showing an old cached copy of the page until it's refreshed)
-const GAME_VERSION = '2026.10.10-g';
+const GAME_VERSION = '2026.11.02-c';
 let tool = 'blaster';
 let firing = false, nextFire = 0, looking = null, lockFailed = false, tpDist = 11;
 const keys = new Set();
@@ -633,6 +659,7 @@ const upstairsAt = (x, z) => inHouse({ x, z }, -HOUSE.t) && !onStairs(x, z);
 // the floor under a standing character at height y: the highest surface they could step onto (up to STEP above their feet)
 const STEP = 1.3, HEAD = 4.6;
 function surfacesAt(x, z) {
+  if (skyMap) return skySurfaces(x, z);
   const s = [0];
   if (upstairsAt(x, z)) s.push(HOUSE.up);
   if (onStairs(x, z)) s.push(stairHeight(z));
@@ -662,6 +689,7 @@ function pushOutOfCars(r, skip) {
   }
 }
 function pushOutOfObstacles(r, skipCar = null) {
+  if (skyMap) { pushOutOfColumn(r); pushOutOfBlocks(r, SKY.blocks); return; }
   pushOutOfCars(r, skipCar);
   pushOutOfTower(r);
   pushOutOfContainers(r);
@@ -719,6 +747,7 @@ function stairsTo(pos, level) {    // the next point to head for to get to floor
 }
 const _np = new THREE.Vector3();
 function routeGoal(r, goal) {
+  if (skyMap) return skyRoute(r, goal);
   const pos = _np.set(r.x, r.y, r.z);
   let ta = towerAt(pos), tb = towerAt(goal);
   if (ta && tb !== ta) tb = null;                        // leave this tower before heading anywhere else
@@ -1282,7 +1311,8 @@ function localDriveInput() {
   if (keys.has('KeyD') || keys.has('ArrowRight')) st += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) st -= 1;
   if (touchStick.on) { th -= touchStick.y; st += touchStick.x; }
-  return { th: THREE.MathUtils.clamp(th, -1, 1), st: THREE.MathUtils.clamp(st, -1, 1), hb: keys.has('Space') ? 1 : 0 };
+  th += pad.gas - pad.brake; st += pad.x;          // controller: triggers for gas / brake, left stick steers
+  return { th: THREE.MathUtils.clamp(th, -1, 1), st: THREE.MathUtils.clamp(st, -1, 1), hb: keys.has('Space') || pad.jump ? 1 : 0 };
 }
 const _cp = { x: 0, y: 0, z: 0 };
 // host: drive the cars, crash into things, and knock over anyone in the way
@@ -1348,6 +1378,557 @@ function resetCars() {
 // everything that blocks shots, throws, grabs and the NPC's view
 const sceneryMeshes = [...containerMeshes, ...houseMeshes, ...furnitureMeshes];
 
+/* ================= Sky maps: the sky dropper and the tube ================= */
+// Two more maps (the Map button cycles town → sky → tube). Each is built far above the town (which is hidden while
+// you're up there) at its own height, so none of them touch; SKY is whichever one is on.
+// Sky: everyone starts on a round platform high in the sky. Get knocked off and you drop past layers of spinning arms
+// (they bat you about on the way down) onto a big floating floor, where low sweepers go round (jump them!) and launch
+// pads fling you back up.
+// Tube: the spinners are shut inside a glass cylinder you can jump into from the ring round its top. At the bottom a
+// funnel drops you into a twisting see-through tube slide that runs down into a giant's mouth. He swallows you, and you
+// come out the other end. Launch pads fling you back up to the ring.
+const townObjects = scene.children.filter((o) => !o.isLight && !o.isCamera);   // everything built so far is the town
+const TOWN_LOOK = { bg: 0xcfe3f3, near: 120, far: 280 }, SKY_LOOK = { bg: 0x8cc8f5, near: 160, far: 400 };
+const MAPS = ['town', 'sky', 'tube'], MAP_NAMES = { town: 'Town', sky: 'Sky', tube: 'Tube' };
+let mapId = 'town', skyMap = false, spinT = 0;     // skyMap: on one of the sky maps (sky or tube)
+// spinners are slippery: they bat you about, but you slide off them instead of riding round on them
+const spinMat = new CANNON.Material('spin');
+world.addContactMaterial(new CANNON.ContactMaterial(physMat, spinMat, { friction: 0.02, restitution: 0.3 }));
+const metal = stdMat(0x94a3b8, 0.35, { metalness: 0.6 }), glassMat = stdMat(0xbae6fd, 0.1, { transparent: true, opacity: 0.35 });
+// rIn: a hole in the middle of the top (the tube's opening); colY0: where the column starts; blocks: boxes walkers bump into
+function newSkyMap(cfg) {
+  const M = { rIn: 0, colY0: cfg.floor, meshes: [], bodies: [], spinners: [], pads: [], blocks: [], group: new THREE.Group(), ...cfg };
+  M.group.visible = false;
+  scene.add(M.group);
+  return M;
+}
+// something solid on a sky map: shown, blocks shots and the NPC's view, and (with a body) physical
+function skyPiece(M, mesh, body) {
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  M.group.add(mesh); M.meshes.push(mesh);
+  if (body) M.bodies.push(body);
+  return mesh;
+}
+function staticBox(M, sx, sy, sz, pos, mat) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+  m.position.copy(pos);
+  const b = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)) });
+  b.position.copy(toC(pos));
+  return skyPiece(M, m, b);
+}
+// the floor far below: a big floating slab with glass edges (the arena's invisible walls keep everyone on it), and clouds
+function skyFloor(M, color) {
+  const { floor } = M, cx = AC.x, cz = AC.z, S = ARENA * 2;
+  staticBox(M, S, 4, S, new THREE.Vector3(cx, floor - 2, cz), stdMat(color, 0.9));
+  const lines = new THREE.GridHelper(S, 35, 0x93c5fd, 0xbfdbfe);
+  lines.position.set(cx, floor + 0.02, cz); M.group.add(lines);
+  for (const [x, z, w, d] of [[cx, cz + ARENA, S, 0.4], [cx, cz - ARENA, S, 0.4], [cx + ARENA, cz, 0.4, S], [cx - ARENA, cz, 0.4, S]]) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 3, d), glassMat);
+    m.position.set(x, floor + 1.5, z); M.group.add(m);
+  }
+  const cloud = stdMat(0xffffff, 1);
+  for (let i = 0; i < 46; i++) {
+    const below = i < 30, a = Math.random() * Math.PI * 2, d = below ? Math.random() * 150 : 95 + Math.random() * 80;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(6 + Math.random() * 9, 12, 8), cloud);
+    m.scale.y = 0.35;
+    m.position.set(cx + Math.cos(a) * d, below ? floor - 25 - Math.random() * 40 : floor + Math.random() * (M.top - floor + 20), cz + Math.sin(a) * d);
+    M.group.add(m);
+  }
+}
+function addColumn(M, y0, y1) {    // the column the spinners turn on
+  const h = y1 - y0;
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(M.col, M.col, h, 20), metal);
+  column.position.set(AC.x, y0 + h / 2, AC.z);
+  const body = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Cylinder(M.col, M.col, h, 16) });
+  body.position.set(AC.x, y0 + h / 2, AC.z);
+  skyPiece(M, column, body);
+}
+// spinners: arms (with paddles on the ends) sweeping round, each its own length, speed and direction (w, radians a
+// second); low ones (ground: the surface they sweep) have no paddles and are low enough to jump
+function addSpinners(M, DEFS) {
+  for (const d of DEFS) {
+    d.x ??= AC.x; d.z ??= AC.z;
+    const hub = new THREE.Group();
+    hub.position.set(d.x, d.y, d.z); M.group.add(hub);
+    const body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: spinMat });
+    body.position.set(d.x, d.y, d.z);
+    body.collisionFilterMask = ALL_CHARS;    // they only bat people about (and never touch each other or the scenery)
+    const hubR = d.hubR || M.col + 0.2;
+    const h = d.low ? 1 : d.small ? 1.2 : 1.4, r0 = hubR, L = d.len - r0, armMat = stdMat(d.color, 0.45), tipMat = stdMat(0xf8fafc, 0.5);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(hubR + 0.5, hubR + 0.5, h + 0.6, 20), metal);
+    collar.castShadow = true; hub.add(collar);
+    const part = (sx, sy, sz, at, q, mat) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      m.position.copy(at); m.quaternion.copy(q); m.castShadow = true; m.receiveShadow = true;
+      hub.add(m); M.meshes.push(m);
+      body.addShape(new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)), toC(at), new CANNON.Quaternion(q.x, q.y, q.z, q.w));
+    };
+    for (let i = 0; i < d.arms; i++) {
+      const q = new THREE.Quaternion().setFromAxisAngle(UP_AXIS, i * Math.PI * 2 / d.arms);
+      part(L, h, 1.8, new THREE.Vector3(r0 + L / 2, 0, 0).applyQuaternion(q), q, armMat);
+      if (!d.low) part(1, 3.6, 3.6, new THREE.Vector3(d.len - 0.5, 0, 0).applyQuaternion(q), q, tipMat);   // a paddle on the end
+    }
+    M.bodies.push(body);
+    M.spinners.push({ ...d, hub, body });
+  }
+}
+// launch pads on the floor (at these angles round the middle): step on one and you're flung back up on top
+function addPads(M, angles, dist) {
+  const padMat = stdMat(0x22d3ee, 0.3, { emissive: 0x0891b2, emissiveIntensity: 0.8 }), arrowMat = stdMat(0xffffff, 0.4, { emissive: 0x67e8f9, emissiveIntensity: 0.6 });
+  for (const a of angles) {
+    const x = AC.x + Math.cos(a) * dist, z = AC.z + Math.sin(a) * dist;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.3, 0.4, 28), padMat);
+    pad.position.set(x, M.floor + 0.2, z); pad.receiveShadow = true; M.group.add(pad);
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2, 4), arrowMat);
+    arrow.position.set(x, M.floor + 2.2, z); M.group.add(arrow);
+    // where it lands you (jumpOutStep flies you there), facing the middle
+    const launch = { exit: new THREE.Vector3(AC.x + Math.cos(a) * M.landR, M.top, AC.z + Math.sin(a) * M.landR), base: M.top, hop: 22, ry: Math.atan2(AC.x - x, AC.z - z), dur: 1.2 + (M.top - M.floor) / 70 * 0.4 };
+    M.pads.push({ x, z, arrow, launch });
+  }
+}
+const SKY_MAPS = {};
+// ---- the sky map ----
+{
+  const M = SKY_MAPS.sky = newSkyMap({ floor: 160, top: 230, r: 20, col: 2.5, spawnR: 12, landR: 12 });
+  const { floor, top, r } = M, cx = AC.x, cz = AC.z;
+  skyFloor(M, 0xe0f2fe);
+  // the platform up top, with rings painted on it
+  const plat = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 2.4, 48), stdMat(0xf8fafc, 0.6));
+  plat.position.set(cx, top - 1.2, cz);
+  const platBody = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Cylinder(r, r, 2.4, 32) });
+  platBody.position.set(cx, top - 1.2, cz);
+  skyPiece(M, plat, platBody);
+  for (const [a, b, c] of [[r - 1.2, r, 0xf59e0b], [11, 12.2, 0x38bdf8], [4, 5.2, 0xf43f5e]]) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(a, b, 48), stdMat(c, 0.6));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(cx, top + 0.02, cz); ring.receiveShadow = true; M.group.add(ring);
+  }
+  addColumn(M, floor, top - 2.4);
+  // The dropper's layers turn on the column, one every 5 units down; smaller "satellites" float round the outside of
+  // the drop to catch anyone flung wide; and the low ones run along the platform and the floor.
+  const DEFS = [
+    { y: top - 9,  len: 30, arms: 2, w: 2.4,  color: 0xef4444 },
+    { y: top - 14, len: 22, arms: 3, w: -3.2, color: 0xfb7185 },
+    { y: top - 19, len: 40, arms: 3, w: -2.0, color: 0xf97316 },
+    { y: top - 24, len: 18, arms: 2, w: 3.6,  color: 0xfbbf24 },
+    { y: top - 29, len: 26, arms: 4, w: 3.0,  color: 0xeab308 },
+    { y: top - 34, len: 46, arms: 2, w: 2.0,  color: 0x84cc16 },
+    { y: top - 39, len: 44, arms: 2, w: -2.6, color: 0x22c55e },
+    { y: top - 44, len: 16, arms: 3, w: -3.4, color: 0x14b8a6 },
+    { y: top - 49, len: 34, arms: 3, w: 2.2,  color: 0x3b82f6 },
+    { y: top - 54, len: 38, arms: 4, w: -2.4, color: 0x6366f1 },
+    { y: top - 59, len: 48, arms: 2, w: -1.8, color: 0xa855f7 },
+    { y: floor + 0.75, len: 54, arms: 2, w: 1.3, color: 0xec4899, low: true, ground: floor },
+    { y: top + 0.75, len: 17, arms: 1, w: 1.2, color: 0xf43f5e, low: true, ground: top, hubR: 0.8 },   // on the platform itself
+  ];
+  for (let i = 0; i < 8; i++) {      // satellites: four round the drop at each of the two short layers' heights
+    const a = i * Math.PI / 4, hi = i % 2 === 0;
+    DEFS.push({ y: top - (hi ? 24 : 44), x: cx + Math.cos(a) * 32, z: cz + Math.sin(a) * 32, len: 9, arms: hi ? 4 : 3,
+                w: (i % 4 < 2 ? 1 : -1) * 4, color: hi ? 0x06b6d4 : 0xd946ef, hubR: 0.8, small: true });
+  }
+  for (let i = 0; i < 4; i++) {      // little ones round the edge of the floor, out past the big sweeper
+    const a = i * Math.PI / 2;
+    DEFS.push({ y: floor + 0.75, x: cx + Math.cos(a) * 61, z: cz + Math.sin(a) * 61, len: 6, arms: 2, w: i % 2 ? 2.5 : -2.5,
+                color: 0xf59e0b, low: true, ground: floor, hubR: 0.6 });
+  }
+  addSpinners(M, DEFS);
+  addPads(M, [1, 3, 5, 7].map((k) => k * Math.PI / 4), 46);
+}
+// ---- the tube map ----
+{
+  const M = SKY_MAPS.tube = newSkyMap({ floor: 320, top: 650, r: 30, rIn: 16, rim: 2, col: 1.2, spawnR: 23, landR: 23, sunK: 3.3 });
+  const { floor, top, r, rIn } = M, cx = AC.x, cz = AC.z;
+  const F = M.funnel = { yTop: floor + 140, yBot: floor + 130, rTop: rIn, rBot: 2.6 };
+  M.colY0 = F.yTop + 3;
+  skyFloor(M, 0xfef3c7);
+  // the ring you stand on round the top of the cylinder (physically, a ring of boxes)
+  const ringMesh = new THREE.Mesh(new THREE.LatheGeometry([[rIn, -2.4], [r, -2.4], [r, 0], [rIn, 0], [rIn, -2.4]].map(([x, y]) => new THREE.Vector2(x, y)), 64),
+    stdMat(0xf8fafc, 0.6, { side: THREE.DoubleSide }));
+  ringMesh.position.set(cx, top, cz);
+  skyPiece(M, ringMesh, null);
+  const ring = (n, rad, halfR, halfY, y, halfT) => {       // n boxes round a circle (local x pointing outwards)
+    for (let i = 0; i < n; i++) {
+      const a = (i + 0.5) / n * Math.PI * 2;
+      const b = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(halfR, halfY, halfT)) });
+      b.position.set(cx + Math.cos(a) * rad, y, cz + Math.sin(a) * rad);
+      b.quaternion.setFromEuler(0, -a, 0);
+      M.bodies.push(b);
+    }
+  };
+  ring(32, (rIn + r) / 2, (r - rIn) / 2, 1.2, top - 1.2, r * Math.PI / 32 + 0.1);
+  for (const [a, b, c] of [[rIn, rIn + 1.2, 0xfacc15], [r - 1.2, r, 0xf59e0b]]) {
+    const paint = new THREE.Mesh(new THREE.RingGeometry(a, b, 64), stdMat(c, 0.6));
+    paint.rotation.x = -Math.PI / 2; paint.position.set(cx, top + 0.02, cz); paint.receiveShadow = true; M.group.add(paint);
+  }
+  // the glass cylinder, from the funnel up to a rim just above the ring (jump over it to get in; it also keeps the
+  // spinners from batting people straight back out), hoops round it, and the spinners shut inside
+  const wallH = top + M.rim - F.yTop;
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(rIn, rIn, wallH, 64, 1, true),
+    stdMat(0xbae6fd, 0.05, { transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+  wall.position.set(cx, F.yTop + wallH / 2, cz);
+  M.group.add(wall); M.meshes.push(wall);
+  ring(40, rIn + 0.5, 0.5, wallH / 2, F.yTop + wallH / 2, (rIn + 1) * Math.PI / 40 + 0.1);
+  for (const y of [...Array(Math.floor((top - F.yTop) / 11)).keys()].map((k) => F.yTop + 1 + k * 11).concat(top + M.rim)) {
+    const hoop = new THREE.Mesh(new THREE.TorusGeometry(rIn + 0.15, 0.3, 8, 64), metal);
+    hoop.rotation.x = Math.PI / 2; hoop.position.set(cx, y, cz); M.group.add(hoop);
+  }
+  addColumn(M, M.colY0, top - 3);
+  for (let i = 0; i < 4; i++) {      // spokes holding the column up at the top
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(rIn - M.col, 0.5, 0.5), metal);
+    spoke.position.set(cx + Math.cos(i * Math.PI / 2) * (rIn + M.col) / 2, top - 3, cz + Math.sin(i * Math.PI / 2) * (rIn + M.col) / 2);
+    spoke.rotation.y = -i * Math.PI / 2; M.group.add(spoke);
+  }
+  // (short enough to leave a gap round the glass to fall through, so nobody gets pinned against it)
+// one layer every 7 units all the way down, in rainbow order, fast, every other one turning the other way
+  const layers = Math.floor((top - 8 - (F.yTop + 5)) / 7) + 1;
+  addSpinners(M, [...Array(layers).keys()].map((i) => ({ y: top - 8 - i * 7, color: new THREE.Color().setHSL(i / layers, 0.75, 0.55).getHex(),
+    len: [10, 8, 11, 7, 10.5, 9, 11][i % 7], arms: [2, 3, 4, 2, 3, 4, 2][i % 7], w: (i % 2 ? -1 : 1) * (4.2 + (i * 0.9) % 2.4) })));
+  // the funnel: a cone of tilted planks down to the hole in the middle (a pull towards the hole does the rest)
+  const fh = F.yTop - F.yBot, dr = F.rTop - F.rBot, tilt = Math.atan2(fh, dr), plank = Math.hypot(fh, dr);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(F.rTop, F.rBot, fh, 48, 1, true), stdMat(0xfacc15, 0.5, { side: THREE.DoubleSide }));
+  cone.position.set(cx, F.yBot + fh / 2, cz);
+  skyPiece(M, cone, null);
+  for (let i = 0; i < 24; i++) {
+    const a = (i + 0.5) / 24 * Math.PI * 2, mid = (F.rTop + F.rBot) / 2;
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -a, tilt, 'YXZ'));
+    const b = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(plank / 2 + 0.3, 0.3, F.rTop * Math.PI / 24 + 0.15)) });
+    b.position.set(cx + Math.cos(a) * mid, F.yBot + fh / 2, cz + Math.sin(a) * mid);
+    b.quaternion.set(q.x, q.y, q.z, q.w);
+    M.bodies.push(b);
+  }
+  // the giant, standing on the floor facing the cylinder (his front is local +z, turned to face -x)
+  const G = M.giant = { x: cx + 44, z: cz };
+  const g = new THREE.Group();
+  g.position.set(G.x, floor, G.z); g.rotation.y = -Math.PI / 2;
+  M.group.add(g);
+  // local (x, y, z) → world: local +z is world -x, local +x is world +z
+  const toWorldG = (x, y, z) => new THREE.Vector3(G.x - z, floor + y, G.z + x);
+  const gPart = (sx, sy, sz, x, y, z, color, solid = true) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), stdMat(color, 0.6));
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m);
+    if (!solid) return m;
+    M.meshes.push(m);
+    const w = toWorldG(x, y, z);
+    const b = new CANNON.Body({ mass: 0, material: physMat, shape: new CANNON.Box(new CANNON.Vec3(sz / 2, sy / 2, sx / 2)) });
+    b.position.copy(toC(w)); M.bodies.push(b);
+    M.blocks.push({ x: w.x, z: w.z, hx: sz / 2, hz: sx / 2, y0: w.y - sy / 2, y1: w.y + sy / 2 });
+    return m;
+  };
+  const skin = 0x86efac;
+  for (const s of [-1, 1]) {
+    gPart(4.6, 10, 4.6, s * 2.6, 5, 0, 0x1e3a8a);          // legs
+    gPart(4.4, 10, 4.6, s * 7.6, 15, 0, skin);             // arms
+  }
+  gPart(10.4, 10, 5, 0, 15, 0, 0x7c3aed);                  // shirt
+  gPart(7.6, 8, 7, 0, 24, 0, skin);                        // head
+  gPart(6.4, 0.7, 0.6, 0, 25.1, 3.7, 0xdc2626, false);     // top lip
+  G.mouthTop = 24.75;
+  G.mouth = gPart(6, 4, 0.3, 0, 22.75, 3.62, 0x3f0d12, false);   // the hole...
+  G.lip = gPart(6.4, 0.7, 0.6, 0, 20.4, 3.7, 0xdc2626, false);   // ...and the bottom lip, which chews
+  addPads(M, [2, 4, 6].map((k) => k * Math.PI / 4), 46);    // (round the sides and back; the giant's out the front)
+  // the tube slide: out of the hole under the funnel in a spiral, then round and round the map through swirl after
+  // swirl (with S-bends between), and in at his mouth. (It's wide enough for a ragdoll to tumble down; no part of it
+  // passes over another.) Laid out flat first, then given a steady slope all
+  // the way down from the funnel to his mouth.
+  const flat = [], yStart = F.yBot - 5, mouthIn = toWorldG(0, 22.75, 3.8);
+  for (let k = 0; k <= 16; k++) {
+    const f = k / 16, th = f * Math.PI * 2.5, rad = 9 * f;
+    flat.push([cx + Math.cos(th) * rad, cz + Math.sin(th) * rad]);
+  }
+  let [px, pz] = flat[flat.length - 1];
+  const swirlAt = (j) => { const a = (0.22 + j * 0.23) * Math.PI, R = j % 2 ? 46 : 38; return [cx + Math.cos(a) * R, cz + Math.sin(a) * R]; };
+  for (let j = 0; j < 8; j++) {       // eight swirls round the map (missing the giant)
+    const [hx, hz] = swirlAt(j), [nx, nz] = j < 7 ? swirlAt(j + 1) : [mouthIn.x, mouthIn.z];
+    // an S-bend over to it...
+    const ux = hz - pz, uz = px - hx, ul = Math.hypot(ux, uz) || 1, w = j % 2 ? 5 : -5;
+    flat.push([(px + hx) / 2 + ux / ul * w, (pz + hz) / 2 + uz / ul * w]);
+    // ...then most of the way round it, starting on the side we came from and going whichever way round ends up
+    // facing the next one (so there are no hairpins)
+    const a0 = Math.atan2(pz - hz, px - hx), end = (dir) => Math.hypot(hx + Math.cos(a0 + dir * 1.4 * Math.PI) * 8 - nx, hz + Math.sin(a0 + dir * 1.4 * Math.PI) * 8 - nz);
+    const dir = end(1) < end(-1) ? 1 : -1;
+    for (let k = 0; k <= 7; k++) { const th = a0 + dir * k / 10 * Math.PI * 2; flat.push([hx + Math.cos(th) * 8, hz + Math.sin(th) * 8]); }
+    [px, pz] = flat[flat.length - 1];
+  }
+  for (const xz of [[cx + 22, cz + 8], [cx + 30, cz - 3], [mouthIn.x - 6, mouthIn.z], [mouthIn.x, mouthIn.z]]) flat.push(xz);
+  let run = 0;
+  const dists = flat.map((q, i) => (run += i ? Math.hypot(q[0] - flat[i - 1][0], q[1] - flat[i - 1][1]) : 0));
+  const path = new THREE.CatmullRomCurve3(flat.map(([x, z], i) => new THREE.Vector3(x, mouthIn.y + (yStart - mouthIn.y) * (1 - dists[i] / run), z)), false, 'centripetal');   // (no kinks)
+  const len = path.getLength();
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(path, Math.ceil(len * 1.5), 3.2, 16, false),
+    stdMat(0xa5f3fc, 0.05, { transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+  M.group.add(tube);
+  // closely spaced points along it (and which way it runs at each), for keeping ragdolls inside it
+  const P = path.getSpacedPoints(Math.ceil(len * 3));
+  const T = P.map((p, i) => P[Math.min(i + 1, P.length - 1)].clone().sub(P[Math.max(i - 1, 0)]).normalize());
+  for (let i = 60; i < P.length; i += 120) {     // stilts holding it up (not on a launch pad or in the giant)
+    const p = P[i], h = p.y - 2 - floor;
+    if (M.pads.some((q) => Math.hypot(p.x - q.x, p.z - q.z) < 5) || Math.hypot(p.x - G.x, p.z - G.z) < 14) continue;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, h, 8), metal);
+    leg.position.set(p.x, floor + h / 2, p.z); M.group.add(leg);
+  }
+  // radius: the tube's; push/top: how hard it pushes you along, and up to what speed. Then eaten: curled up in his
+  // belly a moment, and out the back
+  M.ride = { pts: P, tans: T, radius: 3.2, push: 30, top: 34,
+             eat: { eatT: 1.6, belly: toWorldG(0, 12, 0), out: toWorldG(0, 9, -4.6), outVel: new THREE.Vector3(14, 9, 0), outYaw: Math.PI / 2 } };
+}
+let SKY = SKY_MAPS.sky;
+const skyDist = (x, z) => Math.hypot(x - AC.x, z - AC.z);
+const skyUp = (p) => p.y > SKY.floor + 5;            // up top (rather than down on the floor)
+// spawn spots round the top: 0 is the NPC's, 1-4 the players'
+const skySpawn = (k) => { const a = k * Math.PI * 2 / 5; return facingMiddle(AC.x + Math.cos(a) * SKY.spawnR, AC.z + Math.sin(a) * SKY.spawnR); };
+// switch which map is showing (and which one's solid)
+function setMapMode(id) {
+  if (mapId === id) return;
+  const old = SKY_MAPS[mapId], next = SKY_MAPS[id];
+  const swap = (out, inn) => {        // what blocks shots and the NPC's view
+    for (const list of [sceneryMeshes, wallMeshes]) {
+      for (const m of out) { const i = list.indexOf(m); if (i >= 0) list.splice(i, 1); }
+      list.push(...inn);
+    }
+  };
+  if (old) { old.group.visible = false; for (const b of old.bodies) world.removeBody(b); swap(old.meshes, []); }
+  mapId = id; skyMap = !!next;
+  if (next) { SKY = next; next.group.visible = true; for (const b of next.bodies) world.addBody(b); swap([], next.meshes); }
+  for (const o of townObjects) o.visible = !skyMap;
+  const L = skyMap ? SKY_LOOK : TOWN_LOOK;
+  scene.background.setHex(L.bg); scene.fog.color.setHex(L.bg); scene.fog.near = L.near; scene.fog.far = L.far;
+  const oy = skyMap ? (SKY.floor + SKY.top) / 2 - 10 : 0, k = (skyMap && SKY.sunK) || 1;   // the sun (and its shadows) moves up with you
+  sun.position.set(AC.x + 36 * k, 88 * k + oy, AC.z + 44 * k); sun.target.position.set(AC.x, oy, AC.z);
+  sun.shadow.camera.far = 260 * k; sun.shadow.camera.updateProjectionMatrix();
+  updateMapBtn();
+}
+// standing surfaces: the floor everywhere, and the top (a disc, or a ring round the tube's opening)
+function skySurfaces(x, z) {
+  const s = [SKY.floor], d = skyDist(x, z);
+  if (d < SKY.r && d > SKY.rIn) s.push(SKY.top);
+  if (SKY.rim && Math.abs(d - SKY.rIn) < 0.6) s.push(SKY.top + SKY.rim);   // the tube's rim: jump up onto it
+  return s;
+}
+function pushOutOfColumn(r) {      // (where the column is, it's in the way)
+  if (r.y > SKY.top - 3 || r.y + HEAD < SKY.colY0) return;
+  const d = skyDist(r.x, r.z), m = SKY.col + 1.2;
+  if (d >= m) return;
+  const a = d > 0.01 ? Math.atan2(r.z - AC.z, r.x - AC.x) : 0;
+  r.x = AC.x + Math.cos(a) * m; r.z = AC.z + Math.sin(a) * m;
+}
+function pushOutOfBlocks(r, blocks) {   // (like the house's walls: the giant)
+  for (const b of blocks) {
+    if (b.y0 > r.y + HEAD || b.y1 < r.y + STEP) continue;
+    const hx = b.hx + 1.2, hz = b.hz + 1.2, lx = r.x - b.x, lz = r.z - b.z;
+    if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
+    if (hx - Math.abs(lx) < hz - Math.abs(lz)) r.x = b.x + Math.sign(lx || 1) * hx;
+    else r.z = b.z + Math.sign(lz || 1) * hz;
+  }
+}
+// spinners (and the giant's chewing) on every device (the host's spin time comes in its snapshots)
+function updateSky(dt) {
+  if (!skyMap) return;
+  spinT += dt;
+  for (const s of SKY.spinners) {
+    const a = spinT * s.w;
+    s.hub.rotation.y = a;
+    s.body.quaternion.setFromEuler(0, a, 0);
+    s.body.angularVelocity.set(0, s.w, 0);     // so they bat ragdolls about properly
+    s.body.aabbNeedsUpdate = true;
+  }
+  for (const p of SKY.pads) p.arrow.position.y = SKY.floor + 2.2 + Math.sin(spinT * 4) * 0.4;
+  const G = SKY.giant;
+  if (G) {
+    const open = 4 * (0.6 + 0.4 * (0.5 + 0.5 * Math.sin(spinT * 3.2)));
+    G.mouth.scale.y = open / 4; G.mouth.position.y = G.mouthTop - open / 2;
+    G.lip.position.y = G.mouthTop - open - 0.35;
+  }
+}
+// NPC navigation on the sky maps: off the edge (or into the tube) to get down, a launch pad to get up,
+// round the tube's opening up top, and round the column on the floor
+function skyRoute(r, goal) {
+  const up = skyUp(r), goalUp = skyUp(goal), here = Math.atan2(r.z - AC.z, r.x - AC.x);
+  if (up && !goalUp) {
+    if (SKY.rIn) return new THREE.Vector3(AC.x + Math.cos(here) * (SKY.rIn - 4), r.y, AC.z + Math.sin(here) * (SKY.rIn - 4));   // jump in!
+    let a = Math.atan2(goal.z - AC.z, goal.x - AC.x);
+    if (skyDist(goal.x, goal.z) < SKY.r + 2) a = here;   // they're right underneath: nearest edge
+    return new THREE.Vector3(AC.x + Math.cos(a) * (SKY.r + 4), r.y, AC.z + Math.sin(a) * (SKY.r + 4));
+  }
+  const dx = goal.x - r.x, dz = goal.z - r.z, L2 = dx * dx + dz * dz || 1;
+  const t = THREE.MathUtils.clamp(((AC.x - r.x) * dx + (AC.z - r.z) * dz) / L2, 0, 1);
+  const near = Math.hypot(r.x + dx * t - AC.x, r.z + dz * t - AC.z);      // how close the straight line passes the middle
+  if (up) {
+    if (!SKY.rIn || near > SKY.rIn + 2) return goal;
+    const ga = Math.atan2(goal.z - AC.z, goal.x - AC.x), diff = Math.atan2(Math.sin(ga - here), Math.cos(ga - here));
+    const a = here + Math.sign(diff || 1) * 0.6, mid = (SKY.rIn + SKY.r) / 2;   // the long way round the ring
+    return new THREE.Vector3(AC.x + Math.cos(a) * mid, r.y, AC.z + Math.sin(a) * mid);
+  }
+  if (goalUp) {
+    const pad = SKY.pads.reduce((b, p) => (Math.hypot(p.x - r.x, p.z - r.z) < Math.hypot(b.x - r.x, b.z - r.z) ? p : b));
+    return new THREE.Vector3(pad.x, SKY.floor, pad.z);
+  }
+  if (SKY.colY0 > SKY.floor + 1 || near > SKY.col + 2.5) return goal;   // (the tube's column doesn't reach the floor)
+  let ox = r.x + dx * t - AC.x, oz = r.z + dz * t - AC.z, l = Math.hypot(ox, oz);
+  if (l < 0.3) { ox = -dz; oz = dx; l = Math.hypot(ox, oz) || 1; }    // heading straight at it: pick a side
+  return new THREE.Vector3(AC.x + ox / l * (SKY.col + 5), r.y, AC.z + oz / l * (SKY.col + 5));
+}
+// ---- the tube slide and the giant (host) ----
+// the funnel pulls ragdolls in towards the hole; at the hole, they're off down the slide (still ragdolls: tubeConstrain
+// keeps them in it); at the far end, the giant swallows them
+function tubeHost(dt) {
+  const F = SKY.funnel, R = SKY.ride;
+  for (const ch of allChars()) {
+    if (ch.tube) { if (ch.tube.i >= R.pts.length - 3) swallow(ch); continue; }
+    if (ch.state !== 'ragdoll') { ch.tubeT = 0; continue; }
+    const t = ch.torso.position, d = skyDist(t.x, t.z);
+    // inside the cylinder: a bit of extra pull downwards, and anyone caught up in there for ages goes down the slide anyway
+    if (d < SKY.rIn && t.y > F.yTop && t.y < SKY.top + SKY.rim) {
+      for (const n of NAMES) ch.parts[n].body.velocity.y -= 14 * dt;
+      ch.tubeT = ch.torso.velocity.length() < 4 ? (ch.tubeT || 0) + dt : 0;
+      if (ch.tubeT > 3) { ch.tubeT = 0; startTubeRide(ch); continue; }
+    } else ch.tubeT = 0;
+    if (d > F.rTop + 1 || t.y > F.yTop + 2 || t.y < F.yBot - 6) continue;
+    if (d < 4.5 && t.y < F.yBot + 3.5) { startTubeRide(ch); continue; }
+    if (t.y < F.yTop && ch.torso.velocity.length() < 3) { ch.funnelT = (ch.funnelT || 0) + dt; if (ch.funnelT > 1.5) { ch.funnelT = 0; startTubeRide(ch); continue; } }
+    for (const n of NAMES) {
+      const b = ch.parts[n].body, bx = b.position.x - AC.x, bz = b.position.z - AC.z, l = Math.hypot(bx, bz) || 1;
+      b.velocity.x -= bx / l * 16 * dt; b.velocity.z -= bz / l * 16 * dt;
+    }
+    ch.stillTime = 0;
+  }
+}
+function startTubeRide(ch) {
+  for (const q of PLAYERS) if (q.drag && q.drag.ch === ch) endDrag(q);     // anyone holding them has to let go
+  if (brain.drag && brain.drag.victim.ch === ch) releaseDrag(false);
+  ch.heldBy = null;
+  ch.tube = { i: 0 };                 // how far along the slide they've got (an index into SKY.ride.pts)
+  fx.sfx('whoosh'); fx.bubble(ch, 'tube');
+}
+function nearestOn(P, p, a, b) {     // the point of P (between indexes a and b) nearest to p
+  a = Math.max(0, a); b = Math.min(P.length - 1, b);
+  let best = a, bd = Infinity;
+  for (let k = a; k <= b; k++) { const q = P[k], d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2 + (q.z - p.z) ** 2; if (d < bd) { bd = d; best = k; } }
+  return best;
+}
+// after every physics step: any bit of a ragdoll that's gone through the slide's wall is sprung back inside (losing its
+// speed outwards, which mostly turns into speed along it, like a water slide; a spring rather than a snap, so it
+// doesn't fight the ragdoll's joints), sloshing from side to side dies down, and everyone in it is pushed along it up to a top speed. Gravity keeps them tumbling
+// along the bottom.
+function tubeConstrain() {
+  if (!skyMap || !SKY.ride) return;
+  const R = SKY.ride, P = R.pts, T = R.tans, h = 1 / 120, lim = R.radius - 0.6;
+  for (const ch of allChars()) {
+    const tb = ch.tube;
+    if (!tb) continue;
+    if (ch.state !== 'ragdoll' || ch.heldBy) { ch.tube = null; continue; }   // grabbed out of it, or the like
+    tb.i = nearestOn(P, ch.torso.position, tb.i - 10, tb.i + 60);
+    for (const n of NAMES) {
+      const b = ch.parts[n].body, v = b.velocity, k = nearestOn(P, b.position, tb.i - 15, tb.i + 15), p = P[k], t = T[k];
+      const ox = b.position.x - p.x, oy = b.position.y - p.y, oz = b.position.z - p.z, along = ox * t.x + oy * t.y + oz * t.z;
+      let rx = ox - t.x * along, ry = oy - t.y * along, rz = oz - t.z * along;
+      const d = Math.hypot(rx, ry, rz);
+      const vt = v.x * t.x + v.y * t.y + v.z * t.z, damp = 1 - 5 * h;
+      v.x = t.x * vt + (v.x - t.x * vt) * damp; v.y = t.y * vt + (v.y - t.y * vt) * damp; v.z = t.z * vt + (v.z - t.z * vt) * damp;
+      if (d > lim) {
+        rx /= d; ry /= d; rz /= d;
+        const over = Math.min(d - lim, 1);
+        if (d - lim > 1) b.position.set(p.x + t.x * along + rx * (lim + 1), p.y + t.y * along + ry * (lim + 1), p.z + t.z * along + rz * (lim + 1));   // (way out: back in)
+        const out = v.x * rx + v.y * ry + v.z * rz, k = (out > 0 ? out * 1.2 : 0) + over * 60 * h, keep = out > 0 ? Math.sign(vt || 1) * Math.hypot(vt, out * 0.8) - vt : 0;   // (turned, never sped up)
+        v.x += t.x * keep - rx * k; v.y += t.y * keep - ry * k; v.z += t.z * keep - rz * k;
+      }
+      if (vt < R.top) { v.x += t.x * R.push * h; v.y += t.y * R.push * h; v.z += t.z * R.push * h; }
+      const sp = v.length();
+      if (sp > R.top * 1.6) v.scale(R.top * 1.6 / sp, v);   // (never silly fast)
+    }
+    ch.stillTime = 0;
+  }
+}
+world.addEventListener('postStep', tubeConstrain);
+// at his mouth: gulp (they stop being a ragdoll while they're inside him)
+function swallow(ch) {
+  ch.tube = null;
+  ch.setKinematic(true);
+  const c = SKY.ride.eat, p = entityOf(ch);
+  if (p) { ch.state = 'jump'; p.jump = { t: 0, from: { ...ch.root }, c }; }
+  else { ch.state = 'up'; Object.assign(brain, { mode: 'jumpout', t: 0, from: { ...ch.root }, jc: c, ambush: null }); }
+}
+function eatStep(ch, c, t) {          // (run like a launch pad's jump) curled up in his belly for a moment
+  if (!ch.swallowed) { ch.swallowed = true; fx.bubble(ch, 'eaten'); fx.sfx('chomp'); }
+  Object.assign(ch.root, { x: c.belly.x, y: c.belly.y, z: c.belly.z });
+  ch.amp = 0;
+  ch.applyPose(ch.pose({ armL: -0.8, armR: -0.8, legL: -1.6, legR: -1.6 }));
+  ch.carry.set(0, 0, 0);
+  return t >= c.eatT;
+}
+// ...and out the other end
+function rideOff(ch, c) {
+  ch.swallowed = false;
+  Object.assign(ch.root, { x: c.out.x, y: c.out.y, z: c.out.z, yaw: c.outYaw });
+  ch.state = 'up';
+  ch.applyPose(ch.pose());
+  ch.carry.copy(toC(c.outVel));
+  ch.goRagdoll();
+  fx.bubble(ch, 'out'); fx.sfx('pop');
+}
+// the NPC hops over the low sweepers (most of the time): how high he is into a hop right now
+const NPC_HOP = 0.6;
+const npcHop = () => (npc.hopT > 0 ? 2.2 * 4 * (1 - npc.hopT / NPC_HOP) * (npc.hopT / NPC_HOP) : 0);
+// host: launch pads, the sweepers, and anyone who somehow ends up out of the map
+function skyHost(now, dt) {
+  if (SKY.funnel) tubeHost(dt);
+  npc.hopT = Math.max(0, (npc.hopT || 0) - dt);
+  npc.hopCD = Math.max(0, (npc.hopCD || 0) - dt);
+  npc.skyGrace = Math.max(0, (npc.skyGrace || 0) - dt);
+  // a ragdoll caught on a spinner (or still dropping) doesn't get up in mid-air; they ride it till they fall off
+  // (unless they're stuck up there for ages: then they get up on the floor below)
+  for (const ch of allChars()) {
+    if (ch.state !== 'ragdoll') { ch.skyHang = 0; continue; }
+    const t = ch.torso.position;
+    if (t.y - groundAt(t.x, t.z, t.y) < 3) { ch.skyHang = 0; continue; }
+    ch.skyHang = (ch.skyHang || 0) + dt;
+    const inTube = SKY.funnel && (ch.tube || (skyDist(t.x, t.z) < SKY.rIn + 1 && t.y > SKY.funnel.yBot - 6));   // (the tube sees to them)
+    if (inTube || ch.skyHang < 10) { ch.stillTime = 0; ch.ragdollTime = Math.min(ch.ragdollTime, 4); }
+  }
+  for (const pad of SKY.pads) {
+    const on = (r) => Math.abs(r.y - SKY.floor) < 0.4 && Math.hypot(r.x - pad.x, r.z - pad.z) < 3;
+    for (const p of players()) {
+      if (p.ch.state !== 'up' || !on(p.ch.root)) continue;
+      p.ch.state = 'jump'; p.jump = { t: 0, from: { ...p.ch.root }, c: pad.launch };
+      fx.sfx('whoosh'); fx.bubble(p.ch, 'launch');
+    }
+    if (settings.npcAI && npc.state === 'up' && brain.mode !== 'jumpout' && on(npc.root)) {
+      if (brain.drag) releaseDrag(false);
+      Object.assign(brain, { mode: 'jumpout', t: 0, from: { ...npc.root }, jc: pad.launch, ambush: null });
+      fx.sfx('whoosh'); fx.bubble(npc, 'launch');
+    }
+  }
+  // the low sweepers are solid, so they shove ragdolls by themselves; standing people have to be knocked over by hand
+  for (const s of SKY.spinners) {
+    if (!s.low) continue;
+    const ang = spinT * s.w;
+    for (const ch of allChars()) {
+      if (ch.state !== 'up') continue;
+      const r = ch.root, d = Math.hypot(r.x - s.x, r.z - s.z), y = r.y + (ch === npc ? npcHop() : 0);
+      if (r.y > s.ground + 1.3 || r.y < s.ground - 1 || d > s.len + 0.6 || d < 0.3) continue;   // up on something else, or out of reach
+      const a = Math.atan2(-(r.z - s.z), r.x - s.x);        // (same way round as the hub's rotation)
+      if (ch === npc && settings.npcAI && !npc.hopT && !npc.hopCD) {   // an arm about to reach him: hop (or fail to)
+        for (let i = 0; i < s.arms; i++) {
+          const ahead = ((((a - ang - i * Math.PI * 2 / s.arms) * Math.sign(s.w)) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+          const eta = (ahead - 1.7 / Math.max(d, 1.7)) / Math.abs(s.w);
+          // (from 0.11s ahead, so he's high enough by the time it gets there)
+          if (eta > 0.11 && eta < 0.2) { if (Math.random() < 0.75) npc.hopT = NPC_HOP; else npc.hopCD = 0.6; break; }
+        }
+      }
+      if (y > s.ground + 1.3) continue;                     // jumped it
+      if ((ch === npc ? npc.skyGrace : entityOf(ch).grace) > 0) continue;   // just spawned or got up: a moment to get going
+      for (let i = 0; i < s.arms; i++) {
+        const diff = a - (ang + i * Math.PI * 2 / s.arms);
+        if (Math.cos(diff) <= 0 || Math.abs(Math.sin(diff)) * d > 1.7) continue;
+        const v = Math.sign(s.w) * THREE.MathUtils.clamp(Math.abs(s.w) * d, 10, 32);   // the way the arm's moving there (capped)
+        hitChar(ch, ch.torso, new CANNON.Vec3(0, 2, 0), ch.torso.position.clone(), 'spin', new CANNON.Vec3(-Math.sin(a) * v, 14, -Math.cos(a) * v), null);
+        break;
+      }
+    }
+  }
+  const lost = (ch) => (ch.state === 'up' ? ch.root.y < SKY.floor - 5 : ch.torso.position.y < SKY.floor - 20);
+  for (const p of players()) if (lost(p.ch) && now - (p.lostAt || 0) > 1000) { p.lostAt = now; spawnPlayer(p); }
+  if (lost(npc)) { if (brain.drag) releaseDrag(false); placeNpc(); endAttack(); }
+}
+
 /* ================= Sound ================= */
 let actx = null;
 function sfx(type) {
@@ -1364,6 +1945,8 @@ function sfx(type) {
     else if (type === 'grab') set('triangle', 180, 420, 0.12, 0.15);
     else if (type === 'clang') set('square', 160, 60, 0.12, 0.22);
     else if (type === 'snipe') set('sawtooth', 1400, 70, 0.09, 0.32);
+    else if (type === 'chomp') set('square', 140, 40, 0.14, 0.22);
+    else if (type === 'pop') set('sine', 260, 900, 0.18, 0.14);
     else set('triangle', 300, 600, 0.05, 0.1);
     o.connect(g).connect(actx.destination);
     o.start(t); o.stop(t + 0.25);
@@ -1548,10 +2131,10 @@ class Character {
   }
   setVisible(v) { for (const m of this.meshes) m.visible = v && this.active; }
   sync() { for (const n of NAMES) { const { mesh, body } = this.parts[n]; mesh.position.copy(body.position); mesh.quaternion.copy(body.quaternion); } }
-  reset(x, z, yaw) {
+  reset(x, z, yaw, y = 0) {
     this.setKinematic(true);
-    this.state = 'up'; this.blend = null; this.heldBy = null; this.pendingHits.length = 0;
-    Object.assign(this.root, { x, y: 0, z, yaw });
+    this.state = 'up'; this.blend = null; this.heldBy = null; this.pendingHits.length = 0; this.tube = null; this.swallowed = false;
+    Object.assign(this.root, { x, y, z, yaw });
     this.phase = 0; this.amp = 0; this.carry.setZero();
     this.applyPose(this.pose());
     this.sync();
@@ -1754,11 +2337,15 @@ const WORDS = {
          bbq: ["IT'S HOT IN HERE!", "I'M NOT A SAUSAGE!", 'TOO SPICY!'], grilled: ['WELL DONE!', 'SIZZLE SIZZLE!', 'MEDIUM RARE!'],
          seen: ['I SAW THAT!', 'NICE TRY!', 'I CAN SEE YOU!'], boo: ['BOO!', 'SURPRISE!', 'GOTCHA!'],
          binned: ['IN THE BIN!', 'TAKE OUT THE TRASH!', 'BYE BYE!'], fridged: ['STAY FRESH!', 'CHILL OUT!', 'BEST BEFORE: NEVER!'],
-         closeted: ['GO TO YOUR ROOM!', 'ENJOY NARNIA!', 'STAY IN THERE!'], frozen: ['FROZEN SOLID!', 'STAY COOL!', 'ICE TO MEET YOU!'] },
+         closeted: ['GO TO YOUR ROOM!', 'ENJOY NARNIA!', 'STAY IN THERE!'], frozen: ['FROZEN SOLID!', 'STAY COOL!', 'ICE TO MEET YOU!'],
+         spin: ['MY SHINS!', 'WHAT WAS THAT?!', 'NOT THE SPINNY THING!'], launch: ['TO THE SKY!', 'UP WE GO!', 'WHEEEE!'],
+         eaten: ['NOT THE MOUTH!', "IT'S DARK IN HERE!", 'GULP!'], tube: ['WHEEEEEEE!', 'DOWN THE TUBE!', 'WHERE DOES THIS GO?!'], out: ['EWWWW!', 'THAT WAS GROSS!', "I'M OUT!"] },
   you: { shot: ['AAH!', 'OW!', 'NOT FAIR!'], car: ['OUCH!', 'LOOK BOTH WAYS!'], fall: ['AAAAAAAAH!', 'WHOOOAAA!'], furn: ['OOF!', 'WHO THROWS FURNITURE?!'], plant: ['BONK!', 'OUCH!', 'WHO THROWS PLANTS?!'], grab: ['LET GO!', 'HEY!!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
-         bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'], bbq: ['HOT HOT HOT!', 'LET ME OUT!'] },
+         bin: ['LET ME OUT!', 'HEY!!'], fridge: ['LET ME OUT!', 'IT\'S COLD!'], wardrobe: ['LET ME OUT!', 'IT\'S DARK!'], freezer: ['BRRRR!', 'LET ME OUT!'], bbq: ['HOT HOT HOT!', 'LET ME OUT!'],
+         spin: ['MY SHINS!', 'SHOULD HAVE JUMPED!'], launch: ['WHEEEE!', 'UP WE GO!'], eaten: ['NOOO!', 'GULP!'], tube: ['WHEEEEEE!', 'WHERE DOES THIS GO?!'], out: ['EWWW!', 'GROSS!'] },
   friend: { shot: ['OW!', 'HEY!'], car: ['OUCH!', 'HIT AND RUN!'], fall: ['AAAAAAAAH!', 'NOOOOOO!'], furn: ['OOF!', 'NOT THE SOFA!'], plant: ['BONK!', 'MY HEAD!'], grab: ['LET GO!', 'NOOO!'], throw: ['AAAAAH!', 'WHEEE!'], free: ['FREEDOM!', 'I\'M OUT!'],
-            bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'], bbq: ['OUCH, HOT!', 'NOT THE BARBECUE!'] },
+            bin: ['LET ME OUT!', 'NOT THE BIN!'], fridge: ['LET ME OUT!', 'SO COLD!'], wardrobe: ['LET ME OUT!', 'WHO TURNED THE LIGHTS OFF?!'], freezer: ['BRRRR!', 'NOT THE FREEZER!'], bbq: ['OUCH, HOT!', 'NOT THE BARBECUE!'],
+            spin: ['MY SHINS!', 'OW OW OW!'], launch: ['WHEEEE!', 'SEE YOU UP THERE!'], eaten: ['GULP!', 'HELP!'], tube: ['WHEEEEEE!', 'SEE YOU AT THE BOTTOM!'], out: ['EWWW!', 'YUCK!'] },
 };
 function bubble(ch, kind) {
   const who = ch === npc ? 'npc' : ch === me.ch ? 'you' : 'friend';
@@ -1781,19 +2368,19 @@ function bubble(ch, kind) {
 const alertEl = document.getElementById('alert');
 let alertTimer = 0;
 const WARN = {
-  shoot: '⚠ He\'s aiming at you!',
-  throw: '⚠ Incoming plant!',
-  chase: '⚠ He\'s coming to grab you!',
-  down: '⚠ He\'s coming to grab you while you\'re down!',
-  drag: '😱 He\'s dragging you!',
-  bin: '😱 He\'s taking you to the bin!',
-  fridge: '😱 He\'s putting you in the fridge!',
-  wardrobe: '😱 He\'s shoving you in the wardrobe!',
-  freezer: '😱 He\'s taking you to the freezer!',
-  bbq: "🔥 He's putting you on the barbecue!",
-  seen: '👀 He saw you hide! He\'s coming to drag you out!',
-  ambush: '😱 BOO! He was hiding in there!',
-  car: "🚗 He's driving at you!",
+  shoot: 'He\'s aiming at you!',
+  throw: 'Incoming plant!',
+  chase: 'He\'s coming to grab you!',
+  down: 'He\'s coming to grab you while you\'re down!',
+  drag: 'He\'s dragging you!',
+  bin: 'He\'s taking you to the bin!',
+  fridge: 'He\'s putting you in the fridge!',
+  wardrobe: 'He\'s shoving you in the wardrobe!',
+  freezer: 'He\'s taking you to the freezer!',
+  bbq: "He's putting you on the barbecue!",
+  seen: 'He saw you hide! He\'s coming to drag you out!',
+  ambush: 'BOO! He was hiding in there!',
+  car: "He's driving at you!",
 };
 function showWarn(kind, who) {
   if (who !== me.key) return;          // only warn the player he's going after
@@ -2097,10 +2684,15 @@ function localMove(p, dt) {          // WASD / jump for this device's own player
     mx += rx * touchStick.x - fx_ * touchStick.y; mz += rz * touchStick.x - fz * touchStick.y;
     stick = Math.hypot(touchStick.x, touchStick.y);
   }
+  const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || stick > 0.92 || pad.sprint;
+  if (pad.x || pad.y) {                // controller's left stick (click it in to sprint)
+    mx += rx * pad.x - fx_ * pad.y; mz += rz * pad.x - fz * pad.y;
+    stick = Math.max(stick, Math.min(1, Math.hypot(pad.x, pad.y)));
+  }
   const len = Math.hypot(mx, mz);
-  const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') || stick > 0.92 ? 13 : 8;
+  const speed = sprint ? 13 : 8;
   if (len > 0) { mx /= len; mz /= len; }
-  const pace = touchStick.on && !keys.size ? Math.min(1, stick / 0.6) : 1;   // gentle push on the stick walks slowly
+  const pace = (touchStick.on || pad.x || pad.y) && !keys.size ? Math.min(1, stick / 0.6) : 1;   // gentle push on the stick walks slowly
   p.vel.x = mx * speed * pace; p.vel.z = mz * speed * pace;
   const px = r.x, pz = r.z;
   r.x = clampX(r.x + p.vel.x * dt, 2.2);
@@ -2108,7 +2700,7 @@ function localMove(p, dt) {          // WASD / jump for this device's own player
   pushOutOfObstacles(r);
   if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }       // e.g. the side of the stairs
   let floor = groundAt(r.x, r.z, r.y);
-  if (keys.has('Space') && r.y <= floor + 0.01) p.vel.y = 12;
+  if ((keys.has('Space') || pad.jump) && r.y <= floor + 0.01) p.vel.y = 12;
   if (p.vel.y <= 0 && r.y > floor && r.y - floor < 0.7) r.y = floor;   // walking down stairs
   p.vel.y -= GRAVITY * dt;
   r.y += p.vel.y * dt;
@@ -2122,7 +2714,8 @@ function localMove(p, dt) {          // WASD / jump for this device's own player
 // jump out of a container: an arc from inside it to the ground in front, arms up and knees tucked.
 // Used by the NPC and by players. Returns true when they've landed.
 function jumpOutStep(ch, c, from, t) {
-  const k = Math.min(1, t / 0.8), r = ch.root;
+  if (c.belly) return eatStep(ch, c, t);                               // (inside the tube map's giant)
+  const dur = c.dur || 0.8, k = Math.min(1, t / dur), r = ch.root;      // (dur: the sky map's launch pads take longer)
   r.x = from.x + (c.exit.x - from.x) * k;
   r.z = from.z + (c.exit.z - from.z) * k;
   r.y = from.y * (1 - k) + c.base * k + c.hop * 4 * k * (1 - k);
@@ -2130,7 +2723,7 @@ function jumpOutStep(ch, c, from, t) {
   ch.amp = 0;
   const tuck = Math.sin(k * Math.PI);
   ch.applyPose(ch.pose({ armL: -2.8 * tuck, armR: -2.8 * tuck, legL: -1.1 * tuck, legR: -1.1 * tuck }));
-  ch.carry.set((c.exit.x - from.x) / 0.8, 0, (c.exit.z - from.z) / 0.8);
+  ch.carry.set((c.exit.x - from.x) / dur, 0, (c.exit.z - from.z) / dur);
   if (k >= 1) { r.y = c.base; return true; }
   return false;
 }
@@ -2140,11 +2733,12 @@ function hostDrivePlayer(p, dt) {
   if (ch.state === 'jump') {          // leaping out of a container (you watch it in third person)
     p.jump.t += dt;
     if (jumpOutStep(ch, p.jump.c, p.jump.from, p.jump.t)) {
+      if (p.jump.c.out) { rideOff(ch, p.jump.c); p.jump = null; return; }   // out of the giant
       ch.state = 'up'; p.grace = 2.5; p.downChecked = false;
       p.vel.x = p.vel.y = p.vel.z = 0;
       p.cam.yaw = p.jump.c.ry + Math.PI; // land looking away from it
       p.jump = null;
-      if (p !== me) netSendTo(p, { t: 'hi', slot: p.slot, r: [ch.root.x, 0, ch.root.z], yaw: p.cam.yaw });
+      if (p !== me) netSendTo(p, { t: 'hi', slot: p.slot, r: [ch.root.x, ch.root.y, ch.root.z], yaw: p.cam.yaw });
     }
     return;
   }
@@ -2177,6 +2771,15 @@ function hostDrivePlayer(p, dt) {
 const brain = { mode: 'wander', timer: 3, t: 0, shots: 0, thrown: false, drag: null, panic: 0, target: null };
 const npcGoal = new THREE.Vector3();
 function pickWander() {
+  if (skyMap) {                      // somewhere on the platform, or down on the floor
+    for (let i = 0; i < 20; i++) {
+      if (Math.random() < 0.45) { const a = Math.random() * Math.PI * 2, d = SKY.rIn ? SKY.rIn + 2 + Math.random() * (SKY.r - SKY.rIn - 4) : Math.random() * (SKY.r - 4); npcGoal.set(AC.x + Math.cos(a) * d, SKY.top, AC.z + Math.sin(a) * d); }
+      else npcGoal.set(AC.x + (Math.random() * 2 - 1) * WANDER, SKY.floor, AC.z + (Math.random() * 2 - 1) * WANDER);
+      const inGiant = SKY.blocks.some((b) => Math.abs(npcGoal.x - b.x) < b.hx + 3 && Math.abs(npcGoal.z - b.z) < b.hz + 3);
+      if (!inGiant && (npcGoal.y === SKY.top || skyDist(npcGoal.x, npcGoal.z) > SKY.col + 4) && Math.hypot(npcGoal.x - npc.root.x, npcGoal.z - npc.root.z) > 6) break;
+    }
+    return;
+  }
   for (let i = 0; i < 20; i++) {
     const up = Math.random() < 0.2;    // now and then he wanders upstairs
     if (up) npcGoal.set(THREE.MathUtils.lerp(HOUSE.x0, HOUSE.x1, Math.random()), HOUSE.up, THREE.MathUtils.lerp(HOUSE.z0, HOUSE.z1, Math.random()));
@@ -2190,7 +2793,7 @@ const posOf = (p) => (p.ch.state === 'up' ? new THREE.Vector3(p.ch.root.x, p.ch.
 // how far away, counting a different floor as much further
 const reachDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z) + Math.abs(a.y - b.y) * 3;
 function endAttack() { brain.mode = 'wander'; brain.timer = 2.2 + Math.random() * 2.5; brain.target = null; brain.ambush = null; pickWander(); }
-const freeContainers = () => CONTAINERS.filter((c) => !occupied(c));
+const freeContainers = () => (skyMap ? [] : CONTAINERS.filter((c) => !occupied(c)));   // (none on the sky map)
 function chooseAttack() {
   // people on foot, or driving a car (he can shoot or lob a plant at drivers, which knocks them out of the seat)
   const cands = players().filter((p) => (p.ch.state === 'up' || p.ch.state === 'drive') && p.grace <= 0);
@@ -2222,6 +2825,7 @@ const NPC_DRIVER = { ch: npc, key: 'npc', slot: -2, drive: { th: 0, st: 0, hb: 0
 // someone he could drive at: standing out in the open (not indoors or up a tower)
 const roadTarget = (p) => p && p.ch.active && p.ch.state === 'up' && p.ch.root.y < 1 && !inHouse(p.ch.root, 1) && !towerAt(p.ch.root);
 function npcCarNear() {             // a free car not too far away
+  if (skyMap) return null;
   let best = null, bestD = 45;
   for (const c of CARS) {
     if (c.driver) continue;
@@ -2263,7 +2867,7 @@ function npcDrive(dt) {
   Object.assign(inp, { th, st, hb: 0 });
 }
 // is there a clear line from the NPC's eyes to this player (walls, floors and containers block it)?
-const wallMeshes = [...houseMeshes, ...containerMeshes];
+const wallMeshes = [...houseMeshes, ...containerMeshes];   // (plus the sky map that's on: see setMapMode)
 function canSee(p) {
   const eye = toT(npc.parts.head.body.position), to = toT(p.ch.torso.position).sub(eye);
   const dist = to.length();
@@ -2345,8 +2949,12 @@ function startDrag(victim, avoid) {
   const away = new THREE.Vector3(AC.x - npc.root.x, 0, AC.z - npc.root.z);   // off across the middle
   if (away.length() < 4) away.set(Math.random() - 0.5, 0, Math.random() - 0.5);
   away.setLength(28).add(new THREE.Vector3(AC.x, 0, AC.z));
+  if (skyMap) {                     // up top he hauls you to the edge and throws you off (on the tube map, into the tube); on the floor, anywhere will do
+    if (skyUp(npc.root)) { const a = Math.atan2(npc.root.z - AC.z, npc.root.x - AC.x), d = SKY.rIn ? SKY.rIn + 1.5 : SKY.r - 2.5; away.set(AC.x + Math.cos(a) * d, 0, AC.z + Math.sin(a) * d); }
+    away.y = npc.root.y;
+  }
   // half the time he hauls you off to one of the containers instead
-  const free = CONTAINERS.filter((k) => k !== avoid && !allChars().some((ch) => ch !== victim.ch && inPos(k, ch.torso.position)));
+  const free = skyMap ? [] : CONTAINERS.filter((k) => k !== avoid && !allChars().some((ch) => ch !== victim.ch && inPos(k, ch.torso.position)));
   const into = free.length && Math.random() < 0.5 ? free[Math.floor(Math.random() * free.length)] : null;
   brain.drag = into
     ? { c, t: 4 + Math.hypot(into.front.x - npc.root.x, into.front.z - npc.root.z) / 7, goal: into.front.clone(), victim, into }
@@ -2389,7 +2997,10 @@ function npcMove(dt, goal, speed, faceYaw, over) {
     r.x = clampX(r.x + Math.sin(r.yaw) * speed * dt, 2.5);
     r.z = clampZ(r.z + Math.cos(r.yaw) * speed * dt, 2.5);
     pushOutOfObstacles(r);
-    if (tooHigh(r.x, r.z, r.y)) { r.x = px; r.z = pz; }
+    if (tooHigh(r.x, r.z, r.y)) {
+      if (skyMap && SKY.rim && Math.abs(skyDist(r.x, r.z) - SKY.rIn) < 1) r.y = SKY.top + SKY.rim;   // hops up onto the tube's rim
+      else { r.x = px; r.z = pz; }
+    }
     const floorY = groundAt(r.x, r.z, r.y);
     if (r.y - floorY > 4) {              // walked off an edge: ragdoll all the way down
       npc.applyPose(npc.pose(over));
@@ -2402,12 +3013,13 @@ function npcMove(dt, goal, speed, faceYaw, over) {
   } else if (faceYaw !== null) turn(faceYaw, 8);
   npc.amp += ((moving ? 0.8 : 0) - npc.amp) * Math.min(1, dt * 10);
   if (moving) npc.phase += dt * speed * 1.7;
-  npc.applyPose(npc.pose(over));
+  const hop = skyMap ? npcHop() : 0;              // (hopping over a sweeper on the sky map)
+  r.y += hop; npc.applyPose(npc.pose(over)); r.y -= hop;
   npc.carry.set(moving ? Math.sin(r.yaw) * speed : 0, 0, moving ? Math.cos(r.yaw) * speed : 0);
 }
 function updateNpc(dt) {
   nBlaster.g.visible = settings.npcAI;
-  if (!settings.npcAI) {              // dummy mode: flop over and stay a ragdoll
+  if (!settings.npcAI && !(brain.mode === 'jumpout' && brain.jc && brain.jc.out)) {   // dummy mode: flop over and stay a ragdoll (bar a trip through the giant)
     if (brain.drag) releaseDrag(false);
     if (brain.mode === 'lurk') { Object.assign(npc.root, brain.hideIn.stand); npc.applyPose(npc.pose()); }   // back above the floor first
     if (brain.mode !== 'wander') endAttack();
@@ -2422,7 +3034,7 @@ function updateNpc(dt) {
         Object.assign(brain, { mode: 'jumpout', t: 0, from: { ...npc.root }, jc: brain.jumpOut });
         brain.jumpOut = null;
         fx.sfx('whoosh');
-      } else { brain.panic = 3; endAttack(); }
+      } else { brain.panic = 3; npc.skyGrace = 2; endAttack(); }
     }
     return;
   }
@@ -2439,6 +3051,7 @@ function updateNpc(dt) {
   if (brain.mode === 'jumpout') {
     brain.t += dt;
     if (jumpOutStep(npc, brain.jc, brain.from, brain.t)) {
+      if (brain.jc.out) { rideOff(npc, brain.jc); endAttack(); return; }   // out of the giant
       const victim = brain.ambush;
       if (victim && victim.ch.active && victim.ch.state === 'up') {   // ambush: straight after them
         Object.assign(brain, { mode: 'chase', t: 0, target: victim, ambush: null });
@@ -2689,7 +3302,7 @@ function hostGame() {
     const p = PLAYERS.find((q) => q !== P1 && !q.conn);
     if (!p) { c.on('open', () => { sendOn(c, { t: 'full' }); setTimeout(() => c.close(), 400); }); return; }
     p.conn = c;
-    c.on('open', () => { net.role = 'host'; guestJoined(p); roomStatus(`${p.label} joined! 🎉`); });
+    c.on('open', () => { net.role = 'host'; guestJoined(p); roomStatus(`${p.label} joined!`); });
     c.on('data', (m) => { if (p.conn === c) onHostData(p, m); });
     const gone = () => {
       if (p.conn !== c) return;
@@ -2729,7 +3342,7 @@ function joinGame(code) {
     c.on('open', () => {
       opened = true; clearTimeout(slow); clearTimeout(fail);
       if (net.role !== 'client') { net.role = 'client'; becomeClient(); }
-      setStatus(`Connected to room <b>${code}</b>! 🎉`); mpEl.classList.remove('open');
+      setStatus(`Connected to room <b>${code}</b>!`); mpEl.classList.remove('open');
     });
     c.on('data', (m) => { if (net.conn === c) onClientData(m); });   // ignore stragglers after leaving
     const gone = () => {
@@ -2759,12 +3372,26 @@ document.getElementById('copyBtn').onclick = async () => {
 
 /* host side */
 function spawnPlayer(p) {
-  const [x, z, yaw] = p.spawn;
+  const [x, z, yaw] = skyMap ? skySpawn(p.slot + 1) : p.spawn, y = skyMap ? SKY.top : 0;
   endDrag(p); p.hiding = null; p.jump = null; p.jumpOut = null;
-  p.ch.reset(x, z, yaw + Math.PI);
+  p.ch.reset(x, z, yaw + Math.PI, y);
   Object.assign(p.cam, { yaw, pitch: -0.1 });
   p.vel.x = p.vel.y = p.vel.z = 0; p.grace = 2; p.downChecked = false; p.cd.blaster = p.cd.plant = p.cd.sniper = 0;
-  if (p !== P1) netSendTo(p, { t: 'hi', slot: p.slot, r: [x, 0, z], yaw, v: GAME_VERSION });
+  if (p !== P1) netSendTo(p, { t: 'hi', slot: p.slot, r: [x, y, z], yaw, v: GAME_VERSION, sky: MAPS.indexOf(mapId) });
+}
+function placeNpc() {
+  if (skyMap) { const [x, z] = skySpawn(0); npc.reset(x, z, -Math.PI / 2, SKY.top); npc.skyGrace = 2; }
+  else npc.reset(20, 0, -Math.PI / 2);
+}
+// switch maps (host): everyone goes back to the start of the new one
+function setMap(id) {
+  setMapMode(id);
+  spinT = 0;
+  reset();
+}
+function requestMap() {            // town → sky → tube → town
+  const next = MAPS[(MAPS.indexOf(mapId) + 1) % MAPS.length];
+  if (net.role === 'client') netSend({ t: 'map', to: MAPS.indexOf(next) }); else setMap(next);
 }
 function guestJoined(p) {
   furnFull = 59;                             // send them where all the furniture is in the next snapshot
@@ -2808,6 +3435,7 @@ function onHostData(p, m) {
     case 'th': throwHeld(p, v3(m.d).normalize(), THREE.MathUtils.clamp(+m.pw || 0, 0, 1)); break;
     case 'npc': setNpcAI(!!m.on); break;
     case 'reset': reset(); break;
+    case 'map': setMap(MAPS[m.to] || (m.sky ? 'sky' : 'town')); break;
   }
 }
 function snapshot() {
@@ -2822,7 +3450,7 @@ function snapshot() {
            lids: CONTAINERS.map((c) => [c.open ? 1 : 0, r3(c.angle)]), hd: PLAYERS.map((p) => CONTAINERS.indexOf(p.hiding)),
            ai: settings.npcAI ? 1 : 0, ev: outbox.splice(0), dr: doorLeaves.map((l) => r3(l.angle)),
            cars: CARS.map((c) => [r3(c.x), r3(c.z), r3(c.yaw), c.driver ? c.driver.slot : -1, r3(c.steer)]),
-           fu: furnitureUpdates() };
+           fu: furnitureUpdates(), mp: MAPS.indexOf(mapId), sk: r3(spinT) };
 }
 // only the furniture that has moved since we last sent it (and everything now and then, for anyone who just joined)
 let furnFull = 0;
@@ -2843,7 +3471,7 @@ let gotSnapshot = false, needRoot = true, gotSlot = false;
 function setMe(p) {
   me = p; cam = me.cam;
   setTool(tool);
-  updateScore(); updateHint();
+  updateScore();
 }
 function becomeClient() {
   for (const p of PLAYERS) endDrag(p);
@@ -2874,7 +3502,8 @@ function onClientData(m) {
     }
     if (PLAYERS[m.slot] && PLAYERS[m.slot] !== me) setMe(PLAYERS[m.slot]);
     gotSlot = true;
-    Object.assign(me.ch.root, { x: m.r[0], y: 0, z: m.r[2] });
+    if (m.sky !== undefined) setMapMode(MAPS[+m.sky] || 'town');           // (before standing you there, so you land on the right map)
+    Object.assign(me.ch.root, { x: m.r[0], y: +m.r[1] || 0, z: m.r[2] });
     cam.yaw = m.yaw; cam.pitch = -0.1;
     me.vel.x = me.vel.y = me.vel.z = 0;
     needRoot = false;
@@ -2882,6 +3511,8 @@ function onClientData(m) {
   }
   if (m.t !== 's' || !gotSlot) return;
   SCORE_KEYS.forEach((k, i) => { scores[k] = m.sc[i] || 0; });
+  if (m.mp !== undefined && (MAPS[+m.mp] || 'town') !== mapId) setMapMode(MAPS[+m.mp] || 'town');
+  if (typeof m.sk === 'number') spinT = m.sk;
   if (Array.isArray(m.lids)) m.lids.forEach((a, i) => { const c = CONTAINERS[i]; if (c && Array.isArray(a)) { c.open = !!a[0]; c.angle = a[1]; placeDoor(c); } });
   if (Array.isArray(m.hd)) PLAYERS.forEach((p, i) => { p.hiding = CONTAINERS[m.hd[i]] || null; });
   if (settings.npcAI !== !!m.ai) { settings.npcAI = !!m.ai; updateNpcBtn(); }
@@ -2910,8 +3541,7 @@ function onClientData(m) {
       Object.assign(ch.root, { x: a[1], y: a[2], z: a[3] });
       me.vel.x = me.vel.y = me.vel.z = 0;
       cam.pitch = Math.max(cam.pitch, -0.6);
-      updateHint();
-    } else if (ch === me.ch && prev !== ch.state) updateHint();
+    }
     if (!ch.net) ch.net = NAMES.map(() => ({ p: new THREE.Vector3(), q: new THREE.Quaternion(), init: false }));
     NAMES.forEach((n, k) => {
       const o = 5 + k * 7, t = ch.net[k];
@@ -2954,16 +3584,97 @@ function clientInterpolate(dt) {
 
 /* ================= Input ================= */
 const isLocked = () => document.pointerLockElement === renderer.domElement;
-const HINTS = { blaster: 'Click to shoot', plant: 'Click to throw a plant', sniper: 'Click to shoot · hold right-click to use the scope', grab: 'Hold click to grab · while holding, hold right-click to charge a throw' };
-function updateHint() {
-  const move = 'WASD move · Space jump · Shift sprint';
-  const lookTxt = isLocked() ? 'Esc frees mouse' : lockFailed ? 'right-drag to look (mouse lock blocked here)' : 'click to lock mouse';
-  document.getElementById('hint').textContent = me.ch.state === 'up'
-    ? `${HINTS[tool]} · ${move} · ${lookTxt}`
-    : me.ch.state === 'jump' ? 'Jumping out!'
-    : me.ch.state === 'drive' ? 'Driving · W/S accelerate / brake / reverse · A/D steer · Space handbrake · move the mouse to look round · E to get out'
-    : me.hiding ? `Hiding in the ${me.hiding.name} · Move the mouse to look around`
-    : 'You got ragdolled! Move the mouse to look around while you get back up…';
+// Controller button names for each family. The standard gamepad mapping numbers the face buttons by where they sit
+// (0 bottom, 1 right, 2 left, 3 top), so a Switch controller's bottom button is B where an Xbox one's is A.
+const PAD_LAYOUTS = {
+  xbox:   { name: 'Xbox',        face: ['A', 'B', 'X', 'Y'], lb: 'LB', rb: 'RB', lt: 'LT', rt: 'RT', ls: 'LS', select: 'View', start: 'Menu' },
+  ps:     { name: 'PlayStation', face: ['✕', '○', '□', '△'], lb: 'L1', rb: 'R1', lt: 'L2', rt: 'R2', ls: 'L3', select: 'Create', start: 'Options' },
+  switch: { name: 'Switch',      face: ['B', 'A', 'Y', 'X'], lb: 'L',  rb: 'R',  lt: 'ZL', rt: 'ZR', ls: 'L-stick', select: '−', start: '+' },
+};
+const PAD_PICKS = ['auto', 'xbox', 'ps', 'switch'];
+const PAD_KEY = 'ragdoll-showdown-pad-layout';
+let padPick = 'auto';                 // auto: go by the controller that's plugged in
+try { if (PAD_PICKS.includes(localStorage.getItem(PAD_KEY))) padPick = localStorage.getItem(PAD_KEY); } catch (_) {}
+let padDetected = 'xbox';             // what the plugged-in controller looks like
+let padMode = false;                  // playing on a controller right now: prompts show its buttons, aim from the crosshair
+const padLayoutKey = () => (padPick === 'auto' ? padDetected : padPick);
+const padLayout = () => PAD_LAYOUTS[padLayoutKey()];
+function detectPadLayout(id) {        // 054c is Sony's vendor id, 057e Nintendo's
+  if (/054c|playstation|dualshock|dualsense/i.test(id)) return 'ps';
+  if (/057e|nintendo|switch|pro controller|joy-con/i.test(id)) return 'switch';
+  return 'xbox';
+}
+// the button to press for E / F in the prompts: the key, or the matching controller button while you're on one
+function keyHtml(a) {
+  if (!padMode) return `<kbd>${{ use: 'E', hide: 'F' }[a]}</kbd>`;
+  const f = { use: 2, hide: 3 }[a];
+  return `<kbd class="pad ${padLayoutKey()} f${f}">${padLayout().face[f]}</kbd>`;
+}
+/* ================= How to play ================= */
+// the controls table: keyboard and mouse, plus the plugged-in controller's own button names
+const helpEl = document.getElementById('help');
+function renderHelp() {
+  const L = padLayout(), k = (...ks) => ks.map((s) => `<kbd>${s}</kbd>`).join(' ');
+  const rows = [
+    ['Move', `${k('W', 'A', 'S', 'D')} or arrow keys`, 'Left stick'],
+    ['Look around', 'Mouse (click the game to lock it, Esc frees it; if it won\'t lock, hold right-click and drag)', 'Right stick'],
+    ['Jump', k('Space'), k(L.face[0])],
+    ['Sprint', k('Shift'), `Click ${k(L.ls)}`],
+    ['Use your tool', 'Left-click (hold to keep firing or keep hold of someone)', k(L.rt)],
+    ['Sniper scope / charge a throw', 'Hold right-click', `Hold ${k(L.lt)}`],
+    ['Pick a tool', k('1', '2', '3', '4'), `D-pad (↑ blaster, → plant, ↓ grab, ← sniper) or ${k(L.lb)} ${k(L.rb)}`],
+    ['Get in a car / open or close a container / mash to escape', k('E'), k(L.face[2])],
+    ['Hide in an open container', k('F'), k(L.face[3])],
+    ['Drive', `${k('W')} ${k('S')} gas and brake, ${k('A')} ${k('D')} steer, ${k('Space')} handbrake`, `${k(L.rt)} gas, ${k(L.lt)} brake, left stick steers, ${k(L.face[0])} handbrake`],
+    ['NPC on / ragdoll dummy', k('N'), k(L.select)],
+    ['Reset the match', k('R'), k(L.start)],
+    ['Switch map (town / sky / tube)', k('M'), ''],
+    ['How to play', k('H'), ''],
+  ];
+  document.getElementById('helpBody').innerHTML = `
+    <h3>Controls</h3>
+    <table><tr><th></th><th>Keyboard &amp; mouse</th><th>${L.name} controller</th></tr>
+    ${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+    <h3>Tools</h3>
+    <ul>
+      <li><b>Blaster</b>: shoots straight at where you aim and launches whoever it hits. 2-second cooldown.</li>
+      <li><b>Plant</b>: lobs a potted plant that lands where you aim (and leads runners). 4-second cooldown.</li>
+      <li><b>Grab</b>: picks up people and furniture. Charge a throw to send them flying, or flick the camera as you let go.</li>
+      <li><b>Sniper</b>: hits twice as hard as the blaster. Use the scope for long shots. 3-second cooldown.</li>
+    </ul>
+    <h3>Tips</h3>
+    <ul>
+      <li>Shut people in the bin, fridge, wardrobes, chest freezer or barbecue: open it, throw them in, and close it. Anyone stuck inside has to mash to get out.</li>
+      <li>Climb into an open container to hide. If the NPC sees you get in, he'll come and drag you out.</li>
+      <li>Run people over in a car, or throw them off the towers.</li>
+      <li><b>Sky map</b> (Map button): fight on a platform high in the sky. Knock people off and they drop through layers of spinning arms to the floor far below. Jump the low sweepers (there's one on the platform too). Step on a glowing launch pad to fly back up.</li>
+      <li><b>Tube map</b>: jump over the rim into the giant glass tube, fall past the spinners inside, and the funnel at the bottom drops you into a twisting see-through slide. Tumble all the way down it into the giant's mouth, and come out the other end. Launch pads take you back up.</li>
+      <li>On a phone or tablet: the joystick walks, drag anywhere else to look, and the buttons on the right do the rest.</li>
+    </ul>`;
+}
+// (focus is dropped so Space, your jump key, doesn't press the button again)
+function openHelp() {
+  if (document.exitPointerLock) document.exitPointerLock();
+  renderHelp();
+  helpEl.classList.add('open');
+  if (document.activeElement) document.activeElement.blur();
+}
+function closeHelp() {
+  helpEl.classList.remove('open');
+  if (document.activeElement) document.activeElement.blur();
+}
+document.getElementById('helpBtn').onclick = () => openHelp();
+document.getElementById('helpClose').onclick = closeHelp;
+helpEl.addEventListener('pointerdown', (e) => { if (e.target === helpEl) closeHelp(); });
+// the key labels on the buttons along the top follow whatever you're playing with
+function updateKeyLabels() {
+  const L = padLayout();
+  const toolKeys = padMode ? ['↑', '→', '↓', '←'] : ['1', '2', '3', '4'];    // the D-pad picks tools clockwise from up
+  document.querySelectorAll('[data-tool] kbd').forEach((k, i) => { k.textContent = toolKeys[i]; });
+  document.querySelector('#reset kbd').textContent = padMode ? L.start : 'R';
+  document.getElementById('padBtn').textContent = `Controller: ${padPick === 'auto' ? 'Auto (' + L.name + ')' : L.name}`;
+  updateNpcBtn();
+  if (helpEl.classList.contains('open')) renderHelp();
 }
 function setPointer(e) {
   if (isLocked()) { pointerNdc.set(0, 0); return; }
@@ -2973,8 +3684,8 @@ function tryLock() {
   if (lockFailed || isLocked()) return;
   try {
     const r = renderer.domElement.requestPointerLock();
-    if (r && r.catch) r.catch(() => { lockFailed = true; updateHint(); });
-  } catch (_) { lockFailed = true; updateHint(); }
+    if (r && r.catch) r.catch(() => { lockFailed = true; });
+  } catch (_) { lockFailed = true; }
 }
 function setTool(t) {
   tool = t;
@@ -2985,8 +3696,7 @@ function setTool(t) {
   heldPlant.visible = t === 'plant';
   hand.visible = t === 'grab';
   handMat.color.setHex(me.skin);       // your own skin colour
-  document.getElementById('tFire').textContent = { blaster: '🔫', plant: '🪴', grab: '✋', sniper: '🎯' }[t];
-  updateHint();
+  document.getElementById('tFire').textContent = { blaster: 'Shoot', plant: 'Throw', grab: 'Grab', sniper: 'Shoot' }[t];
 }
 for (const b of document.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
 document.getElementById('reset').onclick = () => requestReset();
@@ -3000,7 +3710,8 @@ document.getElementById('leaveBtn').onclick = () => leaveGame(false);
 mpEl.addEventListener('pointerdown', (e) => { if (e.target === mpEl) mpEl.classList.remove('open'); });
 const npcBtn = document.getElementById('npcBtn');
 function updateNpcBtn() {
-  npcBtn.innerHTML = settings.npcAI ? '🤖 NPC: On<kbd>N</kbd>' : '🧸 NPC: Ragdoll<kbd>N</kbd>';
+  const k = `<kbd>${padMode ? padLayout().select : 'N'}</kbd>`;
+  npcBtn.innerHTML = settings.npcAI ? `NPC: On${k}` : `NPC: Ragdoll${k}`;
   npcBtn.classList.toggle('active', !settings.npcAI);
 }
 function setNpcAI(on) {           // host only; the guests get it in the snapshot
@@ -3008,15 +3719,20 @@ function setNpcAI(on) {           // host only; the guests get it in the snapsho
   if (on) npc.stillTime = 0;      // it gets back up in a moment
   updateNpcBtn();
 }
+function updateMapBtn() {
+  const b = document.getElementById('mapBtn');
+  b.innerHTML = `Map: ${MAP_NAMES[mapId]}<kbd>M</kbd>`;
+  b.classList.toggle('active', skyMap);
+}
+document.getElementById('mapBtn').onclick = () => requestMap();
 function toggleNpc() { if (net.role === 'client') netSend({ t: 'npc', on: !settings.npcAI }); else setNpcAI(!settings.npcAI); }
 npcBtn.onclick = () => toggleNpc();
 updateNpcBtn();
 
-document.addEventListener('pointerlockerror', () => { lockFailed = true; updateHint(); });
+document.addEventListener('pointerlockerror', () => { lockFailed = true; });
 document.addEventListener('pointerlockchange', () => {
   document.body.classList.toggle('locked', isLocked());
   if (isLocked()) pointerNdc.set(0, 0); else actRelease();
-  updateHint();
 });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); tpDist = THREE.MathUtils.clamp(tpDist + Math.sign(e.deltaY) * 1.5, 5, 24); }, { passive: false });
@@ -3051,6 +3767,7 @@ window.addEventListener('pointerdown', (e) => {
   useTool();
 }, { capture: true });
 window.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'mouse' && (e.movementX || e.movementY)) setPadMode(false);    // back on the mouse
   if (isLocked() || (scoped && e.pointerType !== 'touch')) { look(e.movementX || 0, e.movementY || 0, 0.0025); return; }
   if (looking && (e.pointerType !== 'touch' || e.pointerId === looking.id)) {
     look(e.clientX - looking.x, e.clientY - looking.y, e.pointerType === 'touch' ? 0.006 : 0.004);
@@ -3102,7 +3819,6 @@ function enableTouch() {
   touchUI = true;
   document.body.classList.add('touch');
   pointerNdc.set(0, 0);                      // aim with the crosshair in the middle
-  updateHint();
 }
 window.addEventListener('touchstart', enableTouch, { passive: true, capture: true });
 const stickEl = document.getElementById('stick'), knobEl = document.getElementById('knob');
@@ -3156,17 +3872,17 @@ function updateContainerPrompt() {
   const near = me.ch.state === 'up' && nearContainer(me.ch.root);
   const car = me.ch.state === 'up' && nearCar(me.ch.root);
   if (me.ch.state === 'drive') {
-    key = 'driving'; html = 'Driving 🚗 Press <kbd>E</kbd> to get out';
+    key = 'driving'; html = `Driving. Press ${keyHtml('use')} to get out`;
   } else if (car && !me.hiding) {                 // (E gets you into a car before it opens a container)
-    key = 'car'; html = 'Press <kbd>E</kbd> to drive the car 🚗';
+    key = 'car'; html = `Press ${keyHtml('use')} to drive the car`;
   } else if (me.hiding) {
-    key = 'hiding' + me.hiding.id; html = `Hiding in the ${me.hiding.name} 🤫 Press <kbd>E</kbd> or <kbd>F</kbd> to come out`;
+    key = 'hiding' + me.hiding.id; html = `Hiding in the ${me.hiding.name}. Press ${keyHtml('use')} or ${keyHtml('hide')} to come out`;
   } else if (stuck) {
-    key = 'stuck' + stuck.id; html = `You're stuck in the ${stuck.name}! Mash <kbd>E</kbd> to push the ${{ lid: 'lid', door: 'door', double: 'doors' }[stuck.kind]} open`;
+    key = 'stuck' + stuck.id; html = `You're stuck in the ${stuck.name}! Mash ${keyHtml('use')} to push the ${{ lid: 'lid', door: 'door', double: 'doors' }[stuck.kind]} open`;
   } else if (near) {
     key = (near.open ? 'close' : 'open') + near.id;
-    html = `Press <kbd>E</kbd> to ${near.open ? 'close' : 'open'} the ${near.name}`;
-    if (near.open && !allChars().some((ch) => inPos(near, ch.parts.torso.mesh.position))) html += ' · <kbd>F</kbd> to hide inside';
+    html = `Press ${keyHtml('use')} to ${near.open ? 'close' : 'open'} the ${near.name}`;
+    if (near.open && !allChars().some((ch) => inPos(near, ch.parts.torso.mesh.position))) html += ` · ${keyHtml('hide')} to hide inside`;
   }
   if (html === promptHtml) return;
   promptHtml = html;
@@ -3190,11 +3906,15 @@ window.addEventListener('blur', () => keys.clear());
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement) return;            // typing a room code
+  setPadMode(false);
+  if (e.code === 'KeyH' && !e.repeat) { if (helpEl.classList.contains('open')) closeHelp(); else openHelp(); }
+  if (e.code === 'Escape') closeHelp();
   keys.add(e.code);
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (e.code === 'KeyE' && !e.repeat) pressUse();
   if (e.code === 'KeyF' && !e.repeat) pressHide();
   if (e.code === 'KeyN' && !e.repeat) toggleNpc();
+  if (e.code === 'KeyM' && !e.repeat) requestMap();
   if (e.key === '1') setTool('blaster');
   else if (e.key === '2') setTool('plant');
   else if (e.key === '3') setTool('grab');
@@ -3202,12 +3922,82 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'r' || e.key === 'R') requestReset();
 });
 
+/* ================= Controller ================= */
+// Left stick walks (click it in to sprint), right stick looks, right trigger uses your tool, left trigger scopes in or
+// charges a throw. Face buttons by position: bottom jumps (handbrake in a car), left is E, top is F.
+// D-pad picks a tool (clockwise from up: blaster, plant, grab, sniper), the bumpers cycle them,
+// View / Create / − toggles the NPC and Menu / Options / + resets. Driving: right trigger gas, left trigger brake.
+const pad = { x: 0, y: 0, jump: false, sprint: false, gas: 0, brake: 0, prev: [], gp: null };
+const TOOLS = ['blaster', 'plant', 'grab', 'sniper'];
+const PAD_DEAD = 0.18, PAD_LOOK = 3.2;          // stick deadzone, and how fast the right stick turns you (radians a second)
+const deadzone = (v) => (Math.abs(v) < PAD_DEAD ? 0 : Math.sign(v) * (Math.abs(v) - PAD_DEAD) / (1 - PAD_DEAD));
+const padBtn = document.getElementById('padBtn');
+padBtn.onclick = () => {
+  padPick = PAD_PICKS[(PAD_PICKS.indexOf(padPick) + 1) % PAD_PICKS.length];
+  try { localStorage.setItem(PAD_KEY, padPick); } catch (_) {}
+  updateKeyLabels();
+};
+function setPadMode(on) {
+  if (padMode === on) return;
+  padMode = on;
+  document.body.classList.toggle('pad', on);
+  if (on) pointerNdc.set(0, 0);          // aim with the crosshair
+  updateKeyLabels();
+}
+function padRumble(strong, weak, ms) {
+  const a = padMode && pad.gp && pad.gp.vibrationActuator;
+  if (a && a.playEffect) a.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+}
+function pollGamepad(dt) {
+  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter((g) => g && g.connected) : [];
+  const gp = pads.find((g) => g.mapping === 'standard') || pads[0] || null;
+  pad.gp = gp;
+  if (gp) {
+    const kind = detectPadLayout(gp.id);
+    if (kind !== padDetected || padBtn.hidden) { padDetected = kind; padBtn.hidden = false; updateKeyLabels(); }
+  }
+  // unplugged: everything counts as let go, so nothing stays held down
+  const cur = [];
+  for (let i = 0; i < 17; i++) {
+    const b = gp && gp.buttons[i];
+    cur[i] = !!b && (i === 6 || i === 7 ? b.value > 0.35 : b.pressed);
+  }
+  const prev = pad.prev;
+  const hit = (i) => cur[i] && !prev[i], let_go = (i) => !cur[i] && prev[i];
+  pad.prev = cur;
+  const axis = (i) => (gp && gp.axes[i] !== undefined ? deadzone(gp.axes[i]) : 0);
+  pad.x = axis(0); pad.y = axis(1);
+  const lx = axis(2), ly = axis(3);
+  pad.gas = gp && gp.buttons[7] ? gp.buttons[7].value : 0;
+  pad.brake = gp && gp.buttons[6] ? gp.buttons[6].value : 0;
+  pad.jump = cur[0];
+  if (cur.some(Boolean) || pad.x || pad.y || lx || ly) setPadMode(true);
+  else if (!gp && padMode) setPadMode(false);
+  if (hit(10)) pad.sprint = true;
+  if (!pad.x && !pad.y) pad.sprint = false;        // sprinting lasts until you let go of the stick
+  // right stick looks (squared, so small pushes aim finely)
+  if (lx || ly) look(lx * Math.abs(lx) * PAD_LOOK * dt, ly * Math.abs(ly) * PAD_LOOK * 0.75 * dt, 1);
+  if (hit(7) && me.ch.state !== 'drive') { pointerNdc.set(0, 0); useTool(); }   // (in a car it's the gas)
+  if (let_go(7)) actRelease();
+  if (hit(6)) { if (tool === 'sniper') setScoped(true); else startCharge(); }
+  if (let_go(6)) { setScoped(false); releaseCharge(); }
+  if (hit(2)) pressUse();
+  if (hit(3)) pressHide();
+  if (hit(12)) setTool('blaster');
+  if (hit(15)) setTool('plant');
+  if (hit(13)) setTool('grab');
+  if (hit(14)) setTool('sniper');
+  if (hit(4) || hit(5)) setTool(TOOLS[(TOOLS.indexOf(tool) + (hit(5) ? 1 : 3)) % 4]);
+  if (hit(8)) toggleNpc();
+  if (hit(9)) requestReset();
+}
+
 function reset() {
   for (const p of PLAYERS) endDrag(p);
   if (brain.drag) { world.removeConstraint(brain.drag.c); brain.drag = null; }
   for (const p of plants) { scene.remove(p.mesh); world.removeBody(p.body); }
   plants.length = 0;
-  npc.reset(20, 0, -Math.PI / 2);
+  placeNpc();
   Object.assign(brain, { mode: 'wander', timer: 3, panic: 0, target: null, jumpOut: null });
   for (const c of CONTAINERS) { Object.assign(c, { open: false, angle: LID_CLOSED, pushes: 0 }); c.trap.clear(); placeDoor(c); }
   for (const f of FURNITURE) { f.heldBy = null; placeFurniture(f); }
@@ -3216,7 +4006,7 @@ function reset() {
   for (const k of SCORE_KEYS) scores[k] = 0;
   pickWander();
   for (const p of players()) spawnPlayer(p);
-  updateScore(); updateHint();
+  updateScore();
 }
 
 /* ================= Loop ================= */
@@ -3231,9 +4021,10 @@ function hostFrame(dt, now) {
   updateHouseDoors(dt);
   updateCars(dt);
   for (const p of players()) hostDrivePlayer(p, dt);
+  if (skyMap) skyHost(now, dt);
   updateNpc(dt);
   for (const p of players()) updateDrag(p);
-  towerFalls(dt);
+  if (!skyMap) towerFalls(dt);
   world.step(1 / 120, dt, 12);
   for (const ch of allChars()) {
     if (!ch.pendingHits.length) continue;
@@ -3282,15 +4073,20 @@ function updateCooldownUI(now) {
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const now = performance.now();
+  pollGamepad(dt);
+  updateSky(dt);
   if (net.role === 'client') clientFrame(dt, now); else hostFrame(dt, now);
   updateCooldownUI(now);
-  if (me.ch.state + !!me.hiding !== lastMeState) { lastMeState = me.ch.state + !!me.hiding; updateHint(); }
+  if (me.ch.state + !!me.hiding !== lastMeState) {
+    if (me.ch.state === 'ragdoll' && !lastMeState.startsWith('ragdoll')) padRumble(0.9, 0.6, 280);   // you got knocked over
+    lastMeState = me.ch.state + !!me.hiding;
+  }
   updateCamera(dt);
   const wantFov = scoped ? SCOPE_FOV : FOV;          // zoom in and out of the scope
   if (Math.abs(camera.fov - wantFov) > 0.05) { camera.fov += (wantFov - camera.fov) * Math.min(1, dt * 14); camera.updateProjectionMatrix(); }
   // the roof hides while you're indoors (or the camera is) so you can see what's going on
-  roof.visible = !(inHouse(me.ch.state === 'up' ? me.ch.root : me.ch.parts.torso.mesh.position, 0.5) || (inHouse(camera.position, 0.5) && camera.position.y < ROOF_Y + 2));
-  if (spireLight) spireLight.visible = now % 1600 < 800;      // the skyscraper's aircraft warning light blinks
+  roof.visible = !skyMap && !(inHouse(me.ch.state === 'up' ? me.ch.root : me.ch.parts.torso.mesh.position, 0.5) || (inHouse(camera.position, 0.5) && camera.position.y < ROOF_Y + 2));
+  if (spireLight) spireLight.visible = !skyMap && now % 1600 < 800;      // the skyscraper's aircraft warning light blinks
   held.position.z += (-1.1 - held.position.z) * Math.min(1, dt * 14);
   updateChargeUI();
   updateContainerPrompt();
@@ -3307,7 +4103,8 @@ window.__debug = () => {
   return { role: net.role, npc: npc.state, mode: brain.mode, me: me.ch.state, other: other.ch.state, scores: { ...scores }, slot: me.slot,
            hiding: me.hiding && me.hiding.id, lids: CONTAINERS.map((c) => c.open),
            sx: (v.x + 1) / 2 * innerWidth, sy: (1 - v.y) / 2 * innerHeight, ox: (w.x + 1) / 2 * innerWidth, oy: (1 - w.y) / 2 * innerHeight,
-           npcFront: v.z < 1, otherFront: w.z < 1, plants: plants.length + clientPlants.size };
+           npcFront: v.z < 1, otherFront: w.z < 1, plants: plants.length + clientPlants.size,
+           sky: mapId, meY: r3(me.ch.state === 'up' ? me.ch.root.y : me.ch.torso.position.y), npcY: r3(npc.torso.position.y), mode: brain.mode };
 };
 lockFailed = !('requestPointerLock' in renderer.domElement);
 setTool('blaster');

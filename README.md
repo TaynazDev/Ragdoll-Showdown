@@ -1,5 +1,7 @@
 # Ragdoll Showdown
 
+THIS GAME WAS MADE BY AI
+
 A chaotic first-person physics brawler in a single HTML file. You and a blocky NPC knock each other around with a blaster, flying potted plants and your bare hands. Anyone who takes a hit goes full ragdoll, and the loser might end up in the bin, the fridge, the wardrobe or the chest freezer.
 
 Play solo against the NPC, or invite up to three friends for a five-way free-for-all (4 players + the NPC).
@@ -10,6 +12,7 @@ Play solo against the NPC, or invite up to three friends for a five-way free-for
 
 1. Open the game in **Chrome or Edge**: https://taynazdev.github.io/Ragdoll-Showdown/
 2. Click the scene to lock the mouse, then start causing trouble.
+3. Forgot a control? Press **How to play** along the top (or **H**). The controller column there shows your own controller's buttons.
 
 > An internet connection is needed the first time, because the page loads three.js, cannon-es and PeerJS from a CDN.
 
@@ -33,43 +36,66 @@ Play solo against the NPC, or invite up to three friends for a five-way free-for
 | Get in / out of a car | **E** (next to it) |
 | Open / close a container | **E** (when standing next to it) |
 | Hide inside an open container | **F** (press **E** or **F** again to come out) |
-| NPC on / ragdoll dummy | **N** (or the 🤖 NPC button) |
+| NPC on / ragdoll dummy | **N** (or the NPC button) |
 | Escape when shut inside | Mash **E** |
 | Reset the match | **R** |
+| Switch map (town / sky / tube) | **M** (or the **Map** button) |
 
 ---
 
-### Touch controls 📱
-
+### Touch controls
 On a phone or tablet, the touch controls appear as soon as you touch the screen:
 
 | Control | What it does |
 |---|---|
 | **Joystick** (bottom-left) | Walk. Push it all the way to sprint. |
 | **Drag anywhere else** | Look around |
-| **Big button** (🔫 / 🪴 / ✋) | Use your current tool (hold for auto-fire or to keep holding someone) |
+| **Big button** (Shoot / Throw / Grab) | Use your current tool (hold for auto-fire or to keep holding someone) |
 | **⤒** | Jump |
 | **E** / **F** | Open or close containers / hide |
-| **🔭** | Appears with the sniper: tap to look down the scope, tap again to stop |
-| **💪** | Appears while you're holding someone: hold it to charge a throw, let go to throw |
+| **Scope** | Appears with the sniper: tap to look down the scope, tap again to stop |
+| **Throw** | Appears while you're holding someone: hold it to charge a throw, let go to throw |
 
 Pick tools with the buttons along the top. You aim with the crosshair in the middle of the screen.
 
 ---
 
+### Controller
+Plug in (or pair) a controller and press any button. Xbox, PlayStation and Switch controllers all work. The face buttons are listed by where they sit, so the same button does the same thing on every controller:
+
+| Action | Xbox | PlayStation | Switch |
+|---|---|---|---|
+| Move | Left stick | Left stick | Left stick |
+| Sprint | Click **LS** | Click **L3** | Click the **left stick** |
+| Look around | Right stick | Right stick | Right stick |
+| Use tool (hold for auto-fire / to keep holding someone) | **RT** | **R2** | **ZR** |
+| Sniper scope / charge a throw (hold) | **LT** | **L2** | **ZL** |
+| Jump (handbrake in a car) | **A** | **✕** | **B** |
+| E: car / open, close / mash to escape | **X** | **□** | **Y** |
+| F: hide | **Y** | **△** | **X** |
+| Pick a tool | D-pad: ↑ blaster, → plant, ↓ grab, ← sniper · **LB / RB** cycle | D-pad · **L1 / R1** | D-pad · **L / R** |
+| NPC on / ragdoll dummy | **View** | **Create** | **−** |
+| Reset the match | **Menu** | **Options** | **+** |
+
+**Driving:** right trigger accelerates, left trigger brakes and reverses, and the left stick steers.
+
+**Button prompts follow your controller.** The game works out which kind is plugged in and shows its buttons in the hints, the on-screen prompts and the labels along the top. Touch the keyboard or mouse and they switch back to keys. If it guesses wrong (some third-party controllers don't say what they are), click the **Controller** button along the top to pick *Auto*, *Xbox*, *PlayStation* or *Switch*. Your choice is saved in the browser. The controller rumbles when you get knocked over.
+
+---
+
 ## Tools
 
-### 🔫 Blaster
+### Blaster
 A hitscan blaster that fires on a **2-second cooldown**. The first shot on someone standing launches them high into the air. You can keep shooting ragdolls to bounce them around.
 
-### 🪴 Plant
+### Plant
 Throws a potted plant in an arc that lands where you aim, on a **4-second cooldown**. If you aim at someone running, it leads the throw for you. Plants stay in the arena (up to 24) and can be pushed, shot and re-hit.
 
-### 🎯 Sniper
+### Sniper
 A long-range rifle with a **3-second cooldown**. Each shot hits about twice as hard as the blaster and sends people flying.
-- **Hold right-click** to look down the scope. The view zooms right in, the scope's crosshairs appear and aiming slows down so you can line up long shots. Let go to stop. (On touch, tap **🔭** to scope in and out.)
+- **Hold right-click** to look down the scope. The view zooms right in, the scope's crosshairs appear and aiming slows down so you can line up long shots. Let go to stop. (On touch, tap **Scope** to scope in and out.)
 
-### ✋ Grab
+### Grab
 A first-person arm picks people up. You can grab from up to 14 units away, but they're pulled in and held at most 4.5 units in front of you.
 - **Hold right-click** to charge a throw. A *THROW POWER* bar fills over 1.5 seconds: a quick tap is a gentle toss, and a full charge sends them flying.
 - **Let go of left-click** to drop them, or flick the camera as you release to fling them.
@@ -104,12 +130,11 @@ The NPC wanders the arena and attacks every few seconds. A red banner warns the 
 
 He shouts when he gets hit, panics and runs off after getting back up, and jumps out of any container he lands in.
 
-Press **N** (or the **🤖 NPC** button) to switch him to a **ragdoll dummy**: he goes limp, stops attacking and stays a ragdoll for you to shoot, grab and throw around. Press it again to wake him up.
+Press **N** (or the **NPC** button) to switch him to a **ragdoll dummy**: he goes limp, stops attacking and stays a ragdoll for you to shoot, grab and throw around. Press it again to wake him up.
 
 ---
 
-## The house 🏠
-
+## The house
 A two-storey house stands in the back-left of the arena, with a garden behind it.
 
 - **Ground floor:** kitchen (fridge and chest freezer), living room (sofa, coffee table, TV) and a dining table with chairs.
@@ -119,12 +144,11 @@ A two-storey house stands in the back-left of the arena, with a garden behind it
 - **The garden** (out the back door, or round the side) has grass, flower beds, trees, a picnic table, garden gnomes and a **barbecue** you can shove people into.
 - The roof disappears while you're indoors so you can see what's going on.
 
-### Furniture 🛋️
-
+### Furniture
 Every piece of furniture is a physics object:
 
 - **Walk into it** to push it around.
-- **Grab it** (✋ tool), carry it and drop it. Heavy pieces like the bed and sofa are slower to throw.
+- **Grab it** (Grab tool), carry it and drop it. Heavy pieces like the bed and sofa are slower to throw.
 - **Throw it at someone** (hold right-click to charge) to knock them into a ragdoll. It counts as a hit.
 - **Shoot it** to send it skidding. For a couple of seconds after being shot it knocks over anyone it hits too.
 
@@ -132,8 +156,7 @@ Every piece of furniture is a physics object:
 
 ---
 
-## The towers 🗼 🏙️
-
+## The towers
 Two really tall buildings both have a spiral staircase round an open shaft:
 
 - **The stone tower** (60 units tall) stands in the far right-hand corner, with a battlemented lookout and a flag on top.
@@ -148,8 +171,37 @@ Two really tall buildings both have a spiral staircase round an open shaft:
 
 ---
 
-## Roads and cars 🚗
+## The sky map
 
+Press **M** (or the **Map** button along the top) to cycle through the maps: town, sky, tube, and back to town. Switching resets the match. Online, anyone can switch, and it changes for everyone.
+
+- **The platform:** everyone starts on a round platform high in the sky. There's no railing, so knock people off the edge. A one-armed **sweeper** goes round the platform itself, so jump it or get knocked off.
+- **The dropper:** under the platform, eleven layers of arms (one every 5 units down) spin fast round a central column, each a different length and speed, with some going the other way. Paddles on the ends bat falling ragdolls about on the way down.
+- **Satellites:** eight smaller spinners float round the outside of the drop, spinning on their own, to catch anyone flung wide.
+- **The floor:** a big floating floor far below catches everyone. A long low sweeper goes round it fast, and four little spinners turn round its edges. Jump them or get knocked flying.
+- After you spawn or get back up, the sweepers leave you alone for a couple of seconds so you can get moving. The NPC jumps them too (usually).
+- **Launch pads:** four glowing pads out towards the corners of the floor fling you back up onto the platform.
+- **The NPC** knows the map. He drags people to the edge and throws them off, walks off the edge to chase people below, and uses the launch pads to get back up.
+- There are no containers or cars up here.
+
+The spinner speeds (`w`, in radians a second), arm lengths and heights are in the `DEFS` list in the sky map section of `index.html`.
+
+---
+
+## The tube map
+
+The third map. The spinners are shut inside a giant glass tube, high in the sky.
+
+- **The ring:** everyone starts on a ring round the top of the tube. Knock people into the tube, or off the outside.
+- **Getting in:** a low glass rim runs round the opening, so **jump** over it to get in. The NPC hops in too, and likes to drag people to the rim and throw them in.
+- **Inside:** you fall a long way past dozens of layers of fast spinners (a rainbow of them) that bat you about on the way down.
+- **The funnel** at the bottom drops you into a twisting **see-through slide**. You go down it as a ragdoll, tumbling round a spiral and eight swirls that wind all round the map.
+- **The giant** waits at the bottom of the slide with his mouth open. It ends in his mouth: he swallows you, and a moment later you come out the other end.
+- **Launch pads** on the floor fling you back up to the ring.
+
+---
+
+## Roads and cars
 The arena is now **140 × 140**. A two-lane **ring road** loops round all the buildings, and two roads cross at a **junction in the middle**, with zebra crossings and stop lines.
 
 **Eleven big open-top cars:** ten are parked in the **car park** (the square south-east of the junction), and one waits by the road near where you spawn. The car park has three rows of bays, an aisle with entrances off both cross roads, kerbs, lamp posts, a ticket machine and a P sign.
@@ -167,19 +219,18 @@ The arena is now **140 × 140**. A two-lane **ring road** loops round all the bu
 - **Getting shot while driving** (by a friend or the NPC) throws you out of the seat as a ragdoll, at the car's speed. The NPC will happily shoot or lob plants at you while you drive.
 - **Touch:** press **E**, then use the joystick to steer and drive.
 - **Online:** friends can drive too.
-- **The NPC drives as well.** Sometimes he walks to a free car, gets in ("VROOM VROOM!") and chases whoever is out in the open, trying to run them over ("🚗 He's driving at you!"). He drives out of the car park properly, backs up when he gets stuck, and gets out after about 20 seconds. Shoot him to knock him out of the seat.
+- **The NPC drives as well.** Sometimes he walks to a free car, gets in ("VROOM VROOM!") and chases whoever is out in the open, trying to run them over ("He's driving at you!"). He drives out of the car park properly, backs up when he gets stuck, and gets out after about 20 seconds. Shoot him to knock him out of the seat.
 
 ---
 
-## Containers 🗑️ 🧊 🚪
-
+## Containers
 Six containers (the bin outside, the barbecue in the garden, the fridge and freezer downstairs, and two wardrobes upstairs) all work the same way:
 
-- 🗑️ **Bin**: green wheelie bin with a lid
-- 🧊 **Fridge**: tall, with a front door
-- 🚪 **Wardrobes** (×2, upstairs): tall, with double doors that swing apart
-- ❄️ **Chest freezer**: long and low, with a lid
-- 🔥 **Barbecue** (in the garden): a grill with glowing coals and a lid
+- **Bin**: green wheelie bin with a lid
+- **Fridge**: tall, with a front door
+- **Wardrobes** (×2, upstairs): tall, with double doors that swing apart
+- **Chest freezer**: long and low, with a lid
+- **Barbecue** (in the garden): a grill with glowing coals and a lid
 
 - They all start **closed**. Press **E** next to one to open it.
 - Throw or drop people in, then press **E** next to it to close it.
@@ -197,8 +248,8 @@ Six containers (the bin outside, the barbecue in the garden, the fridge and free
 You can play on the same Wi-Fi **or across the internet** with friends on different networks.
 
 1. Open the game in Chrome or Edge.
-2. Click **👥 Play with friends → Host a game**. You get a **4-letter room code** and an **invite link**. Press **Copy link**.
-3. Send the link to up to three friends. Opening it starts the game and joins your room automatically. (They can also open the game, click **👥 Play with friends**, enter the code and press **Join**.) Each friend takes the next free slot (P2–P4) with their own outfit.
+2. Click **Play with friends → Host a game**. You get a **4-letter room code** and an **invite link**. Press **Copy link**.
+3. Send the link to up to three friends. Opening it starts the game and joins your room automatically. (They can also open the game, click **Play with friends**, enter the code and press **Join**.) Each friend takes the next free slot (P2–P4) with their own outfit.
 
 **How it works:**
 - **Mode:** free-for-all, so everyone can shoot, plant and grab everyone, including the NPC.
